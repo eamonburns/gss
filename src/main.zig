@@ -1,0 +1,42 @@
+const std = @import("std");
+const Io = std.Io;
+
+const gss = @import("gss");
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+
+    // gss.loadFromFile("this is a test");
+    // gss.loadFromFile(
+    //     \\#include <stdio.h>
+    //     \\
+    //     \\int main() {
+    //     \\    printf("Hello, %s!\n", "World");
+    //     \\}
+    // );
+    gss.loadFromFile(
+        \\style = {
+        \\    thumbnail = {
+        \\        frame = true,
+        \\        left = 0.59,
+        \\        width = 0.14,
+        \\        top = 0.20,
+        \\        align = "center",
+        \\        valign = "center",
+        \\    },
+        \\    title = {
+        \\        top = 0.37,
+        \\        left = style.thumbnail.left,
+        \\        font_path = "./data/fonts/iosevka-bold.ttf",
+        \\        font_size = 0.04,
+        \\        align = "center",
+        \\    },
+        \\    link = {
+        \\        top = 0.46,
+        \\        left = style.thumbnail.left,
+        \\        width = 0.1,
+        \\        align = "center",
+        \\    },
+        \\}
+    );
+}
