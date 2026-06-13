@@ -6,10 +6,12 @@ pub const Value = union(enum) {
     object: Object,
 
     pub const Object = struct {
-        items: []const struct {
+        items: []const Kvs,
+
+        const Kvs = struct {
             key: []const u8,
             value: Value,
-        },
+        };
     };
 };
 
@@ -26,13 +28,17 @@ const Lexer = struct {
         return .{ .impl = l };
     }
 
+    pub fn token(l: *const Lexer) Token {
+        return @enumFromInt(l.impl.token);
+    }
+
     pub fn getToken(l: *Lexer) c_int {
         return l.impl.stb_c_lexer_get_token();
     }
 
     pub fn getLocation(l: *Lexer, where: enum { first, last }) Location {
         var loc: Location = undefined;
-        c.stb_c_lexer_get_location(l, switch (where) {
+        c.stb_c_lexer_get_location(&l.impl, switch (where) {
             .first => l.impl.where_firstchar,
             .last => l.impl.where_lastchar,
         }, &loc);
@@ -73,6 +79,11 @@ const Lexer = struct {
         shreq = 285,
 
         _,
+
+        pub fn fromChar(char: u8) Token {
+            // const long: c_long = @intCast(char);
+            return @enumFromInt(char);
+        }
     };
 };
 
@@ -89,14 +100,58 @@ const Parser = struct {
         };
     }
 
-    pub fn expectToken(file_path: []const u8, l: *Lexer, expected: c_long) bool {
-        l.getToken();
-        if (l.impl.token != expected) {
-            const loc = l.getLocation();
-            std.debug.print("{s}:{d}:{d}: ERROR: Unexpected token. Expected {d}, but got {d}\n", .{ file_path, loc.line_number, loc.line_offset, expected, l.impl.token });
-            return false;
+    pub fn reportError(p: *Parser, file_path: []const u8, comptime format: []const u8, args: anytype) void {
+        const loc = p.lexer.getLocation(.first);
+        std.debug.print(
+            "{s}:{d}:{d}: error: ",
+            .{ file_path, loc.line_number, loc.line_offset },
+        );
+        std.debug.print(format ++ "\n", args);
+    }
+
+    pub fn expectToken(p: *Parser, file_path: []const u8, expected: Lexer.Token) !void {
+        const l = p.lexer;
+        if (l.getToken() == 0) {
+            p.reportError(file_path, "Expected token {d}, but reach end of input", .{expected});
+            return error.ExpectFailed;
         }
-        return true;
+        if (l.impl.token != @intFromEnum(expected)) {
+            p.reportError(file_path, "Expected token {d}, but got {d}", .{ expected, l.impl.token });
+            // const loc = l.getLocation(.first);
+            // std.debug.print("{s}:{d}:{d}: ERROR: Unexpected token. Expected {d}, but got {d}\n", .{ file_path, loc.line_number, loc.line_offset, expected, l.impl.token });
+            return error.ExpectFailed;
+        }
+    }
+
+    pub fn parseValue(p: *Parser, file_path: []const u8) !Value {
+        _ = p;
+        _ = file_path;
+        @panic("TODO: implement " ++ @src().fn_name);
+    }
+
+    pub fn parseObjectBody(p: *Parser, file_path: []const u8) !Value.Object {
+        const l = p.lexer;
+        var kvs: std.ArrayList(Value.Object.Kvs) = .empty;
+        while (true) {
+            const saved_l = l.*;
+            if (l.getToken() == 0 or l.token() == Lexer.Token.fromChar('}') or l.token() == .eof) {
+                return .{
+                    .items = try kvs.toOwnedSlice(p.gpa),
+                };
+            }
+            l.* = saved_l;
+
+            try p.expectToken(file_path, .id);
+            const key = try p.arena.dupe(u8, l.impl.string[0..@intCast(l.impl.string_len)]);
+            for (kvs.items) |kv| if (std.mem.eql(u8, kv.key, key)) {
+                p.reportError(file_path, "Redefinition of field \"{s}\"", .{key});
+                return error.DuplicateKey;
+            };
+            try p.expectToken(file_path, .fromChar('='));
+            const value = try p.parseValue(file_path);
+            try kvs.append(p.gpa, .{ .key = key, .value = value });
+            try p.expectToken(file_path, .fromChar(','));
+        }
     }
 };
 
@@ -107,38 +162,24 @@ pub const Node = union(Kind) {
     };
 };
 
-pub fn loadFromFile(file_path: []const u8) void {
-    std.debug.print("Input: \"{s}\"\n", .{file_path});
-    var buf: [2048]u8 = undefined;
-    var l: Lexer = .init(file_path, &buf);
-    var i: usize = 0;
-    while (true) : (i += 1) {
-        const r = l.getToken();
-        if (r == 0 or l.impl.token == 0) break;
-        std.debug.print("r: {d}\n", .{r});
-        const token_id = l.impl.token;
-        const token: Lexer.Token = @enumFromInt(token_id);
-        switch (token) {
-            .id => std.debug.print("{s} (id)      =========================\n", .{l.impl.string}),
-            .floatlit => std.debug.print("{d} (floatlit)\n", .{l.impl.real_number}),
-            .dqstring => std.debug.print("{s} (dqstring)\n", .{l.impl.string}),
-            _ => if (token_id < 0) {
-                std.debug.print("{d} (error)\n", .{token_id});
-                break;
-            } else if (token_id < 256) {
-                const c: u8 = @intCast(token_id);
-                std.debug.print("{c} (char)\n", .{c});
-            } else {
-                std.debug.print("{d} (unknown)\n", .{token_id});
-                break;
-            },
-            else => {
-                std.debug.print("{d} ({t})\n", .{ token_id, token });
-                break;
-            },
-        }
-    }
-    return;
+pub fn loadFromFile(io: Io, gpa: Allocator, file_path: []const u8) !void {
+    const input = blk: {
+        const file = try Io.Dir.cwd().openFile(io, file_path, .{ .allow_directory = false });
+        defer file.close(io);
+        var file_buf: [1024]u8 = undefined;
+        var file_reader = file.reader(io, &file_buf);
+        const fw: *Io.Reader = &file_reader.interface;
+        var aw: Io.Writer.Allocating = .init(gpa);
+        _ = try fw.stream(&aw.writer, .unlimited);
+        break :blk try aw.toOwnedSlice();
+    };
+    defer gpa.free(input);
+
+    var string_store: [128]u8 = undefined;
+    var l: Lexer = .init(input, &string_store);
+    var arena: std.heap.ArenaAllocator = .init(gpa);
+    var p: Parser = .init(gpa, arena.allocator(), &l);
+    _ = try p.parseObjectBody(file_path);
 }
 
 test {
