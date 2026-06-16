@@ -15,7 +15,39 @@ pub const Value = union(enum) {
             key: []const u8,
             value: Value,
         };
+
+        pub fn format(self: Object, writer: *Io.Writer) Io.Writer.Error!void {
+            const v: Value = .{ .object = self };
+            try v.format(writer);
+        }
     };
+
+    pub fn format(self: Value, writer: *Io.Writer) Io.Writer.Error!void {
+        try self.dumpInner(writer, 0);
+    }
+
+    fn dumpInner(self: Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
+        switch (self) {
+            .float => |float| try writer.print("{d}", .{float}),
+            .boolean => |boolean| try writer.print("{}", .{boolean}),
+            .string => |string| try writer.print("\"{s}\"", .{string}),
+            .object => |object| {
+                for (object.items) |kv| {
+                    try writer.splatBytesAll("    ", level);
+                    try writer.print("{s} = ", .{kv.key});
+                    if (kv.value == .object) {
+                        try writer.writeAll("{\n");
+                        try kv.value.dumpInner(writer, level + 1);
+                        try writer.splatBytesAll("    ", level);
+                        try writer.writeByte('}');
+                    } else {
+                        try kv.value.dumpInner(writer, level + 1);
+                    }
+                    try writer.writeAll(",\n");
+                }
+            },
+        }
+    }
 };
 
 const Lexer = struct {
@@ -179,10 +211,6 @@ const Parser = struct {
             .dqstring => return .{
                 .string = try p.arena.dupe(u8, l.string()),
             },
-            .parse_error => {
-                p.reportError(file_path, "parse_error: {s}", .{l.string()});
-                return error.ParseFailed;
-            },
             else => |t| {
                 p.reportError(file_path, "invalid token: {t}", .{t});
                 return error.ParseFailed;
@@ -201,13 +229,8 @@ const Parser = struct {
         while (true) {
             const saved_l = l.*;
             if (l.getToken() == 0 or l.token() == Lexer.Token.fromChar('}') or l.token() == .eof) {
+                // Don't consume the `}` token after the object body
                 if (l.token() == Lexer.Token.fromChar('}')) l.* = saved_l;
-                return .{
-                    .items = try p.arena.dupe(Value.Object.Kvs, kvs.items),
-                };
-            }
-            if (l.token() == .parse_error) {
-                p.reportError(file_path, "There was a parse error. I'm not sure why", .{});
                 return .{
                     .items = try p.arena.dupe(Value.Object.Kvs, kvs.items),
                 };
@@ -235,16 +258,14 @@ pub const Node = union(Kind) {
     };
 };
 
-pub fn load(gpa: Allocator, input: []const u8, file_path: []const u8) !void {
+pub fn load(gpa: Allocator, arena: Allocator, input: []const u8, file_path: []const u8) !Value.Object {
     var string_store: [512]u8 = undefined;
     var l: Lexer = .init(input, &string_store);
-    var arena: std.heap.ArenaAllocator = .init(gpa);
-    defer arena.deinit();
-    var p: Parser = .init(gpa, arena.allocator(), &l);
-    _ = try p.parseObjectBody(file_path);
+    var p: Parser = .init(gpa, arena, &l);
+    return try p.parseObjectBody(file_path);
 }
 
-pub fn loadFromFile(io: Io, gpa: Allocator, file_path: []const u8) !void {
+pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) !Value.Object {
     const input = blk: {
         const file = try Io.Dir.cwd().openFile(io, file_path, .{ .allow_directory = false });
         defer file.close(io);
@@ -257,15 +278,17 @@ pub fn loadFromFile(io: Io, gpa: Allocator, file_path: []const u8) !void {
     };
     defer gpa.free(input);
 
-    try load(gpa, input, file_path);
+    return load(gpa, arena, input, file_path);
 }
 
 test load {
-    try load(std.testing.allocator,
+    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena.deinit();
+    _ = try load(std.testing.allocator, arena.allocator(),
         \\foo = {},
     , "<string 1>");
 
-    try load(std.testing.allocator,
+    _ = try load(std.testing.allocator, arena.allocator(),
         \\foo = {
         \\  bar = "bla",
         \\},
@@ -273,7 +296,7 @@ test load {
         \\quux = {},
     , "<string 2>");
 
-    try load(std.testing.allocator,
+    _ = try load(std.testing.allocator, arena.allocator(),
         \\// vim: syntax=c ft=gss
         \\style = {
         \\    thumbnail = {
