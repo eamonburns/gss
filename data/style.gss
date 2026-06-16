@@ -1,3 +1,4 @@
+// vim: syntax=c ft=gss
 style = {
     thumbnail = {
         frame = true,
@@ -9,15 +10,15 @@ style = {
     },
     title = {
         top = 0.37,
-        left = style.thumbnail.left,
+        left = 0.59, //style.thumbnail.left,
         font_path = "./data/fonts/iosevka-bold.ttf",
         font_size = 0.04,
         align = "center",
     },
     link = {
         top = 0.46,
-        left = style.thumbnail.left,
+        left = 0.59, //style.thumbnail.left,
         width = 0.1,
         align = "center",
     },
-}
+},

@@ -4,6 +4,9 @@ const Allocator = std.mem.Allocator;
 
 pub const Value = union(enum) {
     object: Object,
+    float: f64,
+    boolean: bool,
+    string: []const u8,
 
     pub const Object = struct {
         items: []const Kvs,
@@ -24,12 +27,16 @@ const Lexer = struct {
         var l: c.stb_lexer = undefined;
         const input_ptr: usize = @intFromPtr(input.ptr);
         const end_ptr: usize = input_ptr + input.len;
-        l.stb_c_lexer_init(input.ptr, @ptrFromInt(input_ptr + end_ptr), string_store.ptr, @intCast(string_store.len));
+        l.stb_c_lexer_init(input.ptr, @ptrFromInt(end_ptr), string_store.ptr, @intCast(string_store.len));
         return .{ .impl = l };
     }
 
     pub fn token(l: *const Lexer) Token {
         return @enumFromInt(l.impl.token);
+    }
+
+    pub fn string(l: *const Lexer) []const u8 {
+        return l.impl.string[0..@intCast(l.impl.string_len)];
     }
 
     pub fn getToken(l: *Lexer) c_int {
@@ -81,8 +88,23 @@ const Lexer = struct {
         _,
 
         pub fn fromChar(char: u8) Token {
-            // const long: c_long = @intCast(char);
             return @enumFromInt(char);
+        }
+
+        pub fn format(
+            self: Token,
+            writer: *std.Io.Writer,
+        ) std.Io.Writer.Error!void {
+            switch (self) {
+                else => |t| try writer.print("{t}", .{t}),
+                _ => |t| switch (@intFromEnum(t)) {
+                    1...255 => |d| {
+                        const char: u8 = @intCast(d);
+                        try writer.print("'{c}'", .{char});
+                    },
+                    else => |d| try writer.print("{d}", .{d}),
+                },
+            }
         }
     };
 };
@@ -109,43 +131,94 @@ const Parser = struct {
         std.debug.print(format ++ "\n", args);
     }
 
+    pub const ParseError = error{
+        ParseFailed,
+        ExpectFailed,
+    } || Allocator.Error;
+
     pub fn expectToken(p: *Parser, file_path: []const u8, expected: Lexer.Token) !void {
         const l = p.lexer;
         if (l.getToken() == 0) {
-            p.reportError(file_path, "Expected token {d}, but reach end of input", .{expected});
+            p.reportError(file_path, "Expected token {f}, but reached end of input", .{expected});
             return error.ExpectFailed;
         }
         if (l.impl.token != @intFromEnum(expected)) {
-            p.reportError(file_path, "Expected token {d}, but got {d}", .{ expected, l.impl.token });
-            // const loc = l.getLocation(.first);
-            // std.debug.print("{s}:{d}:{d}: ERROR: Unexpected token. Expected {d}, but got {d}\n", .{ file_path, loc.line_number, loc.line_offset, expected, l.impl.token });
+            p.reportError(file_path, "Expected token {f}, but got {f}", .{ expected, l.token() });
             return error.ExpectFailed;
         }
     }
 
-    pub fn parseValue(p: *Parser, file_path: []const u8) !Value {
-        _ = p;
-        _ = file_path;
-        @panic("TODO: implement " ++ @src().fn_name);
+    pub fn parseValue(p: *Parser, file_path: []const u8) ParseError!Value {
+        const l = p.lexer;
+        if (l.getToken() == 0) {
+            p.reportError(file_path, "Expected value, but reached end of input", .{});
+            return error.ParseFailed;
+        }
+        switch (l.token()) {
+            Lexer.Token.fromChar('{') => {
+                const object = try p.parseObjectBody(file_path);
+                try p.expectToken(file_path, .fromChar('}'));
+                return .{ .object = object };
+            },
+            .floatlit => return .{
+                .float = @floatCast(l.impl.real_number),
+            },
+            .id => {
+                if (std.mem.eql(u8, "true", l.string())) {
+                    return .{
+                        .boolean = true,
+                    };
+                } else if (std.mem.eql(u8, "false", l.string())) {
+                    return .{
+                        .boolean = false,
+                    };
+                }
+                p.reportError(file_path, "Unexpected identifier: {s}", .{l.string()});
+                return error.ParseFailed;
+            },
+            .dqstring => return .{
+                .string = try p.arena.dupe(u8, l.string()),
+            },
+            .parse_error => {
+                p.reportError(file_path, "parse_error: {s}", .{l.string()});
+                return error.ParseFailed;
+            },
+            else => |t| {
+                p.reportError(file_path, "invalid token: {t}", .{t});
+                return error.ParseFailed;
+            },
+            _ => |t| {
+                p.reportError(file_path, "invalid token: {f}", .{t});
+                return error.ParseFailed;
+            },
+        }
     }
 
-    pub fn parseObjectBody(p: *Parser, file_path: []const u8) !Value.Object {
+    pub fn parseObjectBody(p: *Parser, file_path: []const u8) ParseError!Value.Object {
         const l = p.lexer;
         var kvs: std.ArrayList(Value.Object.Kvs) = .empty;
+        defer kvs.deinit(p.gpa); // NOTE: The kvs array doesn't live past this function. It is copied into an arena
         while (true) {
             const saved_l = l.*;
             if (l.getToken() == 0 or l.token() == Lexer.Token.fromChar('}') or l.token() == .eof) {
+                if (l.token() == Lexer.Token.fromChar('}')) l.* = saved_l;
                 return .{
-                    .items = try kvs.toOwnedSlice(p.gpa),
+                    .items = try p.arena.dupe(Value.Object.Kvs, kvs.items),
+                };
+            }
+            if (l.token() == .parse_error) {
+                p.reportError(file_path, "There was a parse error. I'm not sure why", .{});
+                return .{
+                    .items = try p.arena.dupe(Value.Object.Kvs, kvs.items),
                 };
             }
             l.* = saved_l;
 
             try p.expectToken(file_path, .id);
-            const key = try p.arena.dupe(u8, l.impl.string[0..@intCast(l.impl.string_len)]);
+            const key = try p.arena.dupe(u8, l.string());
             for (kvs.items) |kv| if (std.mem.eql(u8, kv.key, key)) {
                 p.reportError(file_path, "Redefinition of field \"{s}\"", .{key});
-                return error.DuplicateKey;
+                return error.ParseFailed;
             };
             try p.expectToken(file_path, .fromChar('='));
             const value = try p.parseValue(file_path);
@@ -162,6 +235,15 @@ pub const Node = union(Kind) {
     };
 };
 
+pub fn load(gpa: Allocator, input: []const u8, file_path: []const u8) !void {
+    var string_store: [512]u8 = undefined;
+    var l: Lexer = .init(input, &string_store);
+    var arena: std.heap.ArenaAllocator = .init(gpa);
+    defer arena.deinit();
+    var p: Parser = .init(gpa, arena.allocator(), &l);
+    _ = try p.parseObjectBody(file_path);
+}
+
 pub fn loadFromFile(io: Io, gpa: Allocator, file_path: []const u8) !void {
     const input = blk: {
         const file = try Io.Dir.cwd().openFile(io, file_path, .{ .allow_directory = false });
@@ -175,33 +257,46 @@ pub fn loadFromFile(io: Io, gpa: Allocator, file_path: []const u8) !void {
     };
     defer gpa.free(input);
 
-    var string_store: [128]u8 = undefined;
-    var l: Lexer = .init(input, &string_store);
-    var arena: std.heap.ArenaAllocator = .init(gpa);
-    var p: Parser = .init(gpa, arena.allocator(), &l);
-    _ = try p.parseObjectBody(file_path);
+    try load(gpa, input, file_path);
 }
 
-test {
-    var string_store: [20]u8 = undefined;
-    var l: Lexer = .init("hi", &string_store);
+test load {
+    try load(std.testing.allocator,
+        \\foo = {},
+    , "<string 1>");
 
-    try std.testing.expect(l.getToken());
-    std.debug.print(
-        \\token:
-        \\  token: {d} ({u})
-        \\  real_number: {d}
-        \\  int_number: {d}
-        \\  string: "{s}"
-        \\  string_len: {d}
-        \\
-        \\
-    , .{
-        l.impl.token,
-        @as(u21, @intCast(l.impl.token)),
-        l.impl.real_number,
-        l.impl.int_number,
-        l.impl.string,
-        l.impl.string_len,
-    });
+    try load(std.testing.allocator,
+        \\foo = {
+        \\  bar = "bla",
+        \\},
+        \\baz = 123.0,
+        \\quux = {},
+    , "<string 2>");
+
+    try load(std.testing.allocator,
+        \\// vim: syntax=c ft=gss
+        \\style = {
+        \\    thumbnail = {
+        \\        frame = true,
+        \\        left = 0.59,
+        \\        width = 0.14,
+        \\        top = 0.20,
+        \\        align = "center",
+        \\        valign = "center",
+        \\    },
+        \\    title = {
+        \\        top = 0.37,
+        \\        left = 0.59, //style.thumbnail.left,
+        \\        font_path = "./data/fonts/iosevka-bold.ttf",
+        \\        font_size = 0.04,
+        \\        align = "center",
+        \\    },
+        \\    link = {
+        \\        top = 0.46,
+        \\        left = 0.59, //style.thumbnail.left,
+        \\        width = 0.1,
+        \\        align = "center",
+        \\    },
+        \\},
+    , "<string 3>");
 }
