@@ -1,8 +1,8 @@
-// vim: syntax=c ft=gss
+// vim: ft=gss syntax=c
 style = {
     thumbnail = {
         frame = true,
-        left = 0.59,
+        left = 12312312312.0,
         width = 0.14,
         top = 0.20,
         align = "center",
@@ -10,15 +10,19 @@ style = {
     },
     title = {
         top = 0.37,
-        left = 0.59, //style.thumbnail.left,
+        left = style.thumbnail.left,
         font_path = "./data/fonts/iosevka-bold.ttf",
         font_size = 0.04,
         align = "center",
     },
     link = {
         top = 0.46,
-        left = 0.59, //style.thumbnail.left,
+        left = style.thumbnail.left,
         width = 0.1,
         align = "center",
     },
 },
+
+recursive = recursive,
+
+invalid = dlsfkjflskdjf,

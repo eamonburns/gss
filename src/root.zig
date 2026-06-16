@@ -1,12 +1,14 @@
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
 
 pub const Value = union(enum) {
-    object: Object,
     float: f64,
     boolean: bool,
     string: []const u8,
+    object: Object,
+    expr: Expr,
 
     pub const Object = struct {
         items: []const Kvs,
@@ -22,11 +24,25 @@ pub const Value = union(enum) {
         }
     };
 
+    pub const Expr = union(Kind) {
+        variable: struct {
+            path: []const []const u8,
+        },
+
+        pub const Kind = enum {
+            variable,
+        };
+    };
+
     pub fn format(self: Value, writer: *Io.Writer) Io.Writer.Error!void {
-        try self.dumpInner(writer, 0);
+        try self.dumpInner(&self, writer, 0);
     }
 
-    fn dumpInner(self: Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
+    fn dumpInner(self: Value, root: *const Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
+        if (level > 1_000) {
+            try writer.writeAll("[recursive]");
+            return;
+        }
         switch (self) {
             .float => |float| try writer.print("{d}", .{float}),
             .boolean => |boolean| try writer.print("{}", .{boolean}),
@@ -37,14 +53,29 @@ pub const Value = union(enum) {
                     try writer.print("{s} = ", .{kv.key});
                     if (kv.value == .object) {
                         try writer.writeAll("{\n");
-                        try kv.value.dumpInner(writer, level + 1);
+                        try kv.value.dumpInner(root, writer, level + 1);
                         try writer.splatBytesAll("    ", level);
                         try writer.writeByte('}');
                     } else {
-                        try kv.value.dumpInner(writer, level + 1);
+                        try kv.value.dumpInner(root, writer, level + 1);
                     }
                     try writer.writeAll(",\n");
                 }
+            },
+            .expr => |expr| switch (expr) {
+                .variable => |v| {
+                    const value = root.getValue(v.path) orelse {
+                        return writer.writeAll("[invalid]");
+                    };
+                    if (value == .object) {
+                        try writer.writeAll("{\n");
+                        try value.dumpInner(root, writer, level + 1);
+                        try writer.splatBytesAll("    ", level);
+                        try writer.writeByte('}');
+                    } else {
+                        try value.dumpInner(root, writer, level + 1);
+                    }
+                },
             },
         }
     }
@@ -54,35 +85,41 @@ pub const Value = union(enum) {
         TypeMismatch,
     };
 
-    pub fn getValue(self: Value, comptime T: type, path: []const []const u8) GetError!T {
+    pub fn get(self: Value, comptime T: type, path: []const []const u8) GetError!T {
+        const value = self.getValue(path) orelse return error.DoesNotExist;
+
+        switch (T) {
+            Object => if (value == .object) {
+                return value.object;
+            } else return error.TypeMismatch,
+            f64 => if (value == .float) {
+                return value.float;
+            } else return error.TypeMismatch,
+            bool => if (value == .boolean) {
+                return value.boolean;
+            } else return error.TypeMismatch,
+            []const u8 => if (value == .string) {
+                return value.string;
+            } else return error.TypeMismatch,
+            else => @compileError("invalid type: " ++ @typeName(T)),
+        }
+    }
+
+    pub fn getValue(self: Value, path: []const []const u8) ?Value {
         var cursor = self;
         for (path) |segment| {
             const object = switch (cursor) {
                 else => {
-                    return error.DoesNotExist;
+                    return null;
                 },
                 .object => |o| o,
             };
             cursor = for (object.items) |kv| {
                 if (std.mem.eql(u8, segment, kv.key)) break kv.value;
-            } else return error.DoesNotExist;
+            } else return null;
         }
 
-        switch (T) {
-            Object => if (cursor == .object) {
-                return cursor.object;
-            } else return error.TypeMismatch,
-            f64 => if (cursor == .float) {
-                return cursor.float;
-            } else return error.TypeMismatch,
-            bool => if (cursor == .boolean) {
-                return cursor.boolean;
-            } else return error.TypeMismatch,
-            []const u8 => if (cursor == .string) {
-                return cursor.string;
-            } else return error.TypeMismatch,
-            else => @compileError("invalid type: " ++ @typeName(T)),
-        }
+        return cursor;
     }
 };
 
@@ -241,8 +278,27 @@ const Parser = struct {
                         .boolean = false,
                     };
                 }
-                p.reportError(file_path, "Unexpected identifier: {s}", .{l.string()});
-                return error.ParseFailed;
+
+                var path: std.ArrayList([]const u8) = .empty;
+                defer path.deinit(p.gpa);
+                try path.append(p.gpa, try p.arena.dupe(u8, l.string()));
+                var saved_l = l.*;
+
+                assert(l.getToken() != 0); // TODO: handle it?
+
+                while (l.token() == Lexer.Token.fromChar('.')) {
+                    try p.expectToken(file_path, .id);
+                    try path.append(p.gpa, try p.arena.dupe(u8, l.string()));
+                    saved_l = l.*;
+                    assert(l.getToken() != 0); // TODO: handle it?
+                }
+                l.* = saved_l;
+
+                const expr: Value.Expr = .{ .variable = .{
+                    .path = try p.arena.dupe([]const u8, path.items),
+                } };
+
+                return .{ .expr = expr };
             },
             .dqstring => return .{
                 .string = try p.arena.dupe(u8, l.string()),
@@ -384,14 +440,14 @@ test "Value.getValue" {
 
     try std.testing.expectEqualStrings(
         "center",
-        try value.getValue([]const u8, &.{ "style", "link", "align" }),
+        try value.get([]const u8, &.{ "style", "link", "align" }),
     );
     try std.testing.expectEqual(
         0.04,
-        try value.getValue(f64, &.{ "style", "title", "font_size" }),
+        try value.get(f64, &.{ "style", "title", "font_size" }),
     );
     try std.testing.expectEqual(
         true,
-        try value.getValue(bool, &.{ "style", "thumbnail", "frame" }),
+        try value.get(bool, &.{ "style", "thumbnail", "frame" }),
     );
 }
