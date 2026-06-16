@@ -266,16 +266,7 @@ pub fn load(gpa: Allocator, arena: Allocator, input: []const u8, file_path: []co
 }
 
 pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) !Value.Object {
-    const input = blk: {
-        const file = try Io.Dir.cwd().openFile(io, file_path, .{ .allow_directory = false });
-        defer file.close(io);
-        var file_buf: [1024]u8 = undefined;
-        var file_reader = file.reader(io, &file_buf);
-        const fw: *Io.Reader = &file_reader.interface;
-        var aw: Io.Writer.Allocating = .init(gpa);
-        _ = try fw.stream(&aw.writer, .unlimited);
-        break :blk try aw.toOwnedSlice();
-    };
+    const input = try Io.Dir.cwd().readFileAlloc(io, file_path, gpa, .unlimited);
     defer gpa.free(input);
 
     return load(gpa, arena, input, file_path);
