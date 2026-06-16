@@ -48,6 +48,42 @@ pub const Value = union(enum) {
             },
         }
     }
+
+    pub const GetError = error{
+        DoesNotExist,
+        TypeMismatch,
+    };
+
+    pub fn getValue(self: Value, comptime T: type, path: []const []const u8) GetError!T {
+        var cursor = self;
+        for (path) |segment| {
+            const object = switch (cursor) {
+                else => {
+                    return error.DoesNotExist;
+                },
+                .object => |o| o,
+            };
+            cursor = for (object.items) |kv| {
+                if (std.mem.eql(u8, segment, kv.key)) break kv.value;
+            } else return error.DoesNotExist;
+        }
+
+        switch (T) {
+            Object => if (cursor == .object) {
+                return cursor.object;
+            } else return error.TypeMismatch,
+            f64 => if (cursor == .float) {
+                return cursor.float;
+            } else return error.TypeMismatch,
+            bool => if (cursor == .boolean) {
+                return cursor.boolean;
+            } else return error.TypeMismatch,
+            []const u8 => if (cursor == .string) {
+                return cursor.string;
+            } else return error.TypeMismatch,
+            else => @compileError("invalid type: " ++ @typeName(T)),
+        }
+    }
 };
 
 const Lexer = struct {
@@ -258,14 +294,16 @@ pub const Node = union(Kind) {
     };
 };
 
-pub fn load(gpa: Allocator, arena: Allocator, input: []const u8, file_path: []const u8) !Value.Object {
+pub fn load(gpa: Allocator, arena: Allocator, input: []const u8, file_path: []const u8) !Value {
     var string_store: [512]u8 = undefined;
     var l: Lexer = .init(input, &string_store);
     var p: Parser = .init(gpa, arena, &l);
-    return try p.parseObjectBody(file_path);
+    return .{
+        .object = try p.parseObjectBody(file_path),
+    };
 }
 
-pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) !Value.Object {
+pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) !Value {
     const input = try Io.Dir.cwd().readFileAlloc(io, file_path, gpa, .unlimited);
     defer gpa.free(input);
 
@@ -313,4 +351,47 @@ test load {
         \\    },
         \\},
     , "<string 3>");
+}
+
+test "Value.getValue" {
+    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena.deinit();
+    const value = try load(std.testing.allocator, arena.allocator(),
+        \\style = {
+        \\    thumbnail = {
+        \\        frame = true,
+        \\        left = 0.59,
+        \\        width = 0.14,
+        \\        top = 0.20,
+        \\        align = "center",
+        \\        valign = "center",
+        \\    },
+        \\    title = {
+        \\        top = 0.37,
+        \\        left = 0.59,
+        \\        font_path = "./data/fonts/iosevka-bold.ttf",
+        \\        font_size = 0.04,
+        \\        align = "center",
+        \\    },
+        \\    link = {
+        \\        top = 0.46,
+        \\        left = 0.59,
+        \\        width = 0.1,
+        \\        align = "center",
+        \\    },
+        \\},
+    , "<string 1>");
+
+    try std.testing.expectEqualStrings(
+        "center",
+        try value.getValue([]const u8, &.{ "style", "link", "align" }),
+    );
+    try std.testing.expectEqual(
+        0.04,
+        try value.getValue(f64, &.{ "style", "title", "font_size" }),
+    );
+    try std.testing.expectEqual(
+        true,
+        try value.getValue(bool, &.{ "style", "thumbnail", "frame" }),
+    );
 }
