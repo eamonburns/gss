@@ -26,7 +26,7 @@ style = {
         top = 0.2,
     },
     title = {
-        left = 1.0,
+        left = 1,
         top = style.thumbnail.top,
     },
 },
@@ -41,14 +41,12 @@ Valid types are:
 
 ## Known Issues
 
-- Numbers must include a decimal place (This is due to using `stb_c_lexer.h` for tokenization).
-    - See [#1](https://github.com/eamonburns/casl/issues/1)
 - Trailing commas are _mandatory_
     - Not sure if this is an issue or not. I may or may not remove this requirement in the future.
 
 ## Acknowledgments
 
-The original Casl implementation was made by Alexey Kutepov ([@rexim](https://github.com/rexim))
+The original Casl implementation was made by Alexey Kutepov ([@rexim](https://github.com/rexim), A.K.A. [@tsoding](https://github.com/tsoding))
 on a stream: [Stealing ideas from NixOS](https://youtu.be/JWIregr388Y?si=MH83rjwOyYB_5ykD)
 
 It was written in Jai, but I don't have access to Jai, so I rewrote it in Zig
