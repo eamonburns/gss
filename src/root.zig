@@ -35,14 +35,10 @@ pub const Value = union(enum) {
     };
 
     pub fn format(self: Value, writer: *Io.Writer) Io.Writer.Error!void {
-        try self.dumpInner(&self, writer, 0);
+        try self.formatInner(&self, writer, 0);
     }
 
-    fn dumpInner(self: Value, root: *const Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
-        if (level > 1_000) {
-            try writer.writeAll("[recursive]");
-            return;
-        }
+    fn formatInner(self: Value, root: *const Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
         switch (self) {
             .float => |float| try writer.print("{d}", .{float}),
             .boolean => |boolean| try writer.print("{}", .{boolean}),
@@ -53,40 +49,40 @@ pub const Value = union(enum) {
                     try writer.print("{s} = ", .{kv.key});
                     if (kv.value == .object) {
                         try writer.writeAll("{\n");
-                        try kv.value.dumpInner(root, writer, level + 1);
+                        try kv.value.formatInner(root, writer, level + 1);
                         try writer.splatBytesAll("    ", level);
                         try writer.writeByte('}');
                     } else {
-                        try kv.value.dumpInner(root, writer, level + 1);
+                        try kv.value.formatInner(root, writer, level + 1);
                     }
                     try writer.writeAll(",\n");
                 }
             },
             .expr => |expr| switch (expr) {
                 .variable => |v| {
-                    const value = root.getValue(v.path) orelse {
-                        return writer.writeAll("[invalid]");
+                    const value = root.getValue(v.path) catch |err| switch (err) {
+                        error.StackOverflow => return writer.writeAll("[recursive]"),
+                        error.Missing => return writer.writeAll("[missing]"),
                     };
                     if (value == .object) {
                         try writer.writeAll("{\n");
-                        try value.dumpInner(root, writer, level + 1);
+                        try value.formatInner(root, writer, level + 1);
                         try writer.splatBytesAll("    ", level);
                         try writer.writeByte('}');
                     } else {
-                        try value.dumpInner(root, writer, level + 1);
+                        try value.formatInner(root, writer, level + 1);
                     }
                 },
             },
         }
     }
 
-    pub const GetError = error{
-        DoesNotExist,
+    pub const GetError = GetValueError || error{
         TypeMismatch,
     };
 
     pub fn get(self: Value, comptime T: type, path: []const []const u8) GetError!T {
-        const value = self.getValue(path) orelse return error.DoesNotExist;
+        const value = try self.getValue(path);
 
         switch (T) {
             Object => if (value == .object) {
@@ -105,21 +101,37 @@ pub const Value = union(enum) {
         }
     }
 
-    pub fn getValue(self: Value, path: []const []const u8) ?Value {
+    pub const GetValueError = error{ Missing, StackOverflow };
+
+    pub fn getValue(self: Value, path: []const []const u8) GetValueError!Value {
+        return self.getValueInner(path, 0);
+    }
+
+    fn getValueInner(self: Value, path: []const []const u8, level: usize) GetValueError!Value {
+        const recursion_limit = 100; // TODO: Make configurable?
+        if (level > recursion_limit) return error.StackOverflow;
+
         var cursor = self;
         for (path) |segment| {
             const object = switch (cursor) {
                 else => {
-                    return null;
+                    return error.Missing;
                 },
                 .object => |o| o,
             };
             cursor = for (object.items) |kv| {
                 if (std.mem.eql(u8, segment, kv.key)) break kv.value;
-            } else return null;
+            } else return error.Missing;
         }
 
-        return cursor;
+        const expr = switch (cursor) {
+            .expr => |e| e,
+            else => return cursor,
+        };
+
+        switch (expr) {
+            .variable => |v| return self.getValueInner(v.path, level + 1),
+        }
     }
 };
 
