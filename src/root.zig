@@ -289,9 +289,22 @@ const Parser = struct {
 
                 return .{ .expr = expr };
             },
-            .string_literal => return .{
-                // TODO: Proper string handling (escapes)
-                .string = try p.arena.dupe(u8, p.source[tok.loc.start + 1 .. tok.loc.end - 1]),
+            .string_literal => {
+                var aw: Io.Writer.Allocating = try .initCapacity(p.arena, tok.loc.end - tok.loc.start);
+                const result = zig.string_literal.parseWrite(&aw.writer, p.tokenSlice(tok)) catch return error.OutOfMemory;
+                switch (result) {
+                    .failure => |err| {
+                        p.reportError(file_path, tok, "unable to parse string: {f}", .{err.fmt(p.tokenSlice(tok))});
+                        return error.ParseFailed;
+                    },
+                    .success => {},
+                }
+                return .{
+                    // NOTE: In the optimistic case, where the parsed string is
+                    // shorter than the string literal, this should not pollute
+                    // the arena with garbage allocations.
+                    .string = try aw.toOwnedSlice(),
+                };
             },
             else => {
                 p.reportError(file_path, tok, "invalid token: {t}", .{tok.tag});
