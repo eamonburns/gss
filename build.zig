@@ -6,7 +6,7 @@ pub fn build(b: *std.Build) void {
 
     const stb_c_lexer = buildStbCLexer(b, b.dependency("stb_c_lexer", .{}), target, optimize);
 
-    const gss_mod = b.addModule("gss", .{
+    const casl_mod = b.addModule("casl", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .imports = &.{
@@ -15,13 +15,13 @@ pub fn build(b: *std.Build) void {
     });
 
     const exe = b.addExecutable(.{
-        .name = "gss",
+        .name = "casl",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
             .imports = &.{
-                .{ .name = "gss", .module = gss_mod },
+                .{ .name = "casl", .module = casl_mod },
             },
         }),
     });
@@ -40,7 +40,7 @@ pub fn build(b: *std.Build) void {
     }
 
     const mod_tests = b.addTest(.{
-        .root_module = gss_mod,
+        .root_module = casl_mod,
     });
 
     const run_mod_tests = b.addRunArtifact(mod_tests);

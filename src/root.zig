@@ -411,7 +411,7 @@ test load {
     , "<string 2>");
 
     _ = try load(std.testing.allocator, arena.allocator(),
-        \\// vim: syntax=c ft=gss
+        \\// vim: syntax=c ft=casl
         \\style = {
         \\    thumbnail = {
         \\        frame = true,

@@ -1,4 +1,4 @@
-// vim: ft=gss syntax=c
+// vim: ft=casl syntax=c
 style = {
     screen = {
         factor = 130.0,
