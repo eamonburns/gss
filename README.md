@@ -1,0 +1,55 @@
+# Cascade Language (casl)
+
+Casl is a configuration file format inspired by the [Nix language](https://nix.dev/tutorials/nix-language.html).
+
+A Casl file is made up of key/value pairs:
+
+```c
+foo = 10.0,
+bar = true,
+baz = "thing",
+quux = {
+    wow = "so cool",
+},
+```
+
+A Casl file can be queried using a path:
+- The path `foo` has the value `10.0`
+- The path `quux.wow` has the value `"so cool"`
+(Note: all paths are "absolute" at the moment. See [#3](https://github.com/eamonburns/casl/issues/3))
+
+Paths can be used as values:
+```c
+style = {
+    thumbnail = {
+        left = 0.6,
+        top = 0.2,
+    },
+    title = {
+        left = 1.0,
+        top = style.thumbnail.top,
+    },
+},
+```
+(This means that `style.thumbnail.top` and `style.title.top` are both `0.2`!)
+
+Valid types are:
+- `float` (Zig: `f64`)
+- `boolean` (Zig: `bool`)
+- `string` (Zig: `[]const u8`)
+- `object` (Zig: `casl.Value.Object`)
+
+## Known issues
+
+- Numbers must include a decimal place (This is due to using `stb_c_lexer.h` for tokenization).
+    - See [#1](https://github.com/eamonburns/casl/issues/1)
+- Trailing commas are _mandatory_
+    - Not sure if this is an issue or not. I may or may not remove this requirement in the future.
+
+## Acknoledgments
+
+The original Casl implementation was made by Alexey Kutepov ([@rexim](https://github.com/rexim))
+on a stream: [Stealing ideas from NixOS](https://youtu.be/JWIregr388Y?si=MH83rjwOyYB_5ykD)
+
+It was written in Jai, but I don't have access to Jai, so I rewrote it in Zig
+(I'm sorry Alexey, I know you hate Zig).
