@@ -1,4 +1,4 @@
-# Cascade Language (casl)
+# Cascade Language (Casl)
 
 Casl is a configuration file format inspired by the [Nix language](https://nix.dev/tutorials/nix-language.html).
 
@@ -39,14 +39,14 @@ Valid types are:
 - `string` (Zig: `[]const u8`)
 - `object` (Zig: `casl.Value.Object`)
 
-## Known issues
+## Known Issues
 
 - Numbers must include a decimal place (This is due to using `stb_c_lexer.h` for tokenization).
     - See [#1](https://github.com/eamonburns/casl/issues/1)
 - Trailing commas are _mandatory_
     - Not sure if this is an issue or not. I may or may not remove this requirement in the future.
 
-## Acknoledgments
+## Acknowledgments
 
 The original Casl implementation was made by Alexey Kutepov ([@rexim](https://github.com/rexim))
 on a stream: [Stealing ideas from NixOS](https://youtu.be/JWIregr388Y?si=MH83rjwOyYB_5ykD)
