@@ -44,6 +44,7 @@ pub const Value = union(enum) {
             .boolean => |boolean| try writer.print("{}", .{boolean}),
             .string => |string| try writer.print("\"{s}\"", .{string}),
             .object => |object| {
+                // FIXME: Don't print \n at the end
                 for (object.items) |kv| {
                     try writer.splatBytesAll("    ", level);
                     try writer.print("{s} = ", .{kv.key});
@@ -77,10 +78,19 @@ pub const Value = union(enum) {
         }
     }
 
+    pub const GetFallbackError = GetValueFallbackError || error{
+        TypeMismatch,
+    };
+    pub fn getFallback(self: Value, comptime T: type, fallback: T, path: []const []const u8) GetFallbackError!T {
+        return self.get(T, path) catch |err| switch (err) {
+            error.Missing => fallback,
+            else => |e| e,
+        };
+    }
+
     pub const GetError = GetValueError || error{
         TypeMismatch,
     };
-
     pub fn get(self: Value, comptime T: type, path: []const []const u8) GetError!T {
         const value = try self.getValue(path);
 
@@ -101,8 +111,15 @@ pub const Value = union(enum) {
         }
     }
 
-    pub const GetValueError = error{ Missing, StackOverflow };
+    pub const GetValueFallbackError = error{StackOverflow};
+    pub fn getValueFallback(self: Value, fallback: Value, path: []const []const u8) GetValueFallbackError!Value {
+        return self.getValue(path) catch |err| switch (err) {
+            error.Missing => fallback,
+            else => |e| e,
+        };
+    }
 
+    pub const GetValueError = error{ Missing, StackOverflow };
     pub fn getValue(self: Value, path: []const []const u8) GetValueError!Value {
         return self.getValueInner(path, 0);
     }
