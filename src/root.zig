@@ -3,6 +3,8 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
+const zig = std.zig;
+
 pub const Value = union(enum) {
     float: f64,
     boolean: bool,
@@ -152,117 +154,43 @@ pub const Value = union(enum) {
     }
 };
 
-const Lexer = struct {
-    impl: c.stb_lexer,
-
-    const c = @import("stb_c_lexer");
-
-    pub fn init(input: []const u8, string_store: []u8) Lexer {
-        var l: c.stb_lexer = undefined;
-        const input_ptr: usize = @intFromPtr(input.ptr);
-        const end_ptr: usize = input_ptr + input.len;
-        l.stb_c_lexer_init(input.ptr, @ptrFromInt(end_ptr), string_store.ptr, @intCast(string_store.len));
-        return .{ .impl = l };
-    }
-
-    pub fn token(l: *const Lexer) Token {
-        return @enumFromInt(l.impl.token);
-    }
-
-    pub fn string(l: *const Lexer) []const u8 {
-        return l.impl.string[0..@intCast(l.impl.string_len)];
-    }
-
-    pub fn getToken(l: *Lexer) c_int {
-        return l.impl.stb_c_lexer_get_token();
-    }
-
-    pub fn getLocation(l: *Lexer, where: enum { first, last }) Location {
-        var loc: Location = undefined;
-        c.stb_c_lexer_get_location(&l.impl, switch (where) {
-            .first => l.impl.where_firstchar,
-            .last => l.impl.where_lastchar,
-        }, &loc);
-        return loc;
-    }
-
-    pub const Location = c.stb_lex_location;
-    pub const Token = enum(c_long) {
-        eof = 256,
-        parse_error = 257,
-        intlit = 258,
-        floatlit = 259,
-        id = 260,
-        dqstring = 261,
-        sqstring = 262,
-        charlit = 263,
-        eq = 264,
-        noteq = 265,
-        lesseq = 266,
-        greatereq = 267,
-        andand = 268,
-        oror = 269,
-        shl = 270,
-        shr = 271,
-        plusplus = 272,
-        minusminus = 273,
-        pluseq = 274,
-        minuseq = 275,
-        muleq = 276,
-        diveq = 277,
-        modeq = 278,
-        andeq = 279,
-        oreq = 280,
-        xoreq = 281,
-        arrow = 282,
-        eqarrow = 283,
-        shleq = 284,
-        shreq = 285,
-
-        _,
-
-        pub fn fromChar(char: u8) Token {
-            return @enumFromInt(char);
-        }
-
-        pub fn format(
-            self: Token,
-            writer: *std.Io.Writer,
-        ) std.Io.Writer.Error!void {
-            switch (self) {
-                else => |t| try writer.print("{t}", .{t}),
-                _ => |t| switch (@intFromEnum(t)) {
-                    1...255 => |d| {
-                        const char: u8 = @intCast(d);
-                        try writer.print("'{c}'", .{char});
-                    },
-                    else => |d| try writer.print("{d}", .{d}),
-                },
-            }
-        }
-    };
-};
-
 const Parser = struct {
-    lexer: *Lexer,
+    source: [:0]const u8,
+    tokenizer: zig.Tokenizer,
     gpa: Allocator,
     arena: Allocator,
 
-    pub fn init(gpa: Allocator, arena: Allocator, lexer: *Lexer) Parser {
+    pub fn init(gpa: Allocator, arena: Allocator, source: [:0]const u8) Parser {
         return .{
-            .lexer = lexer,
+            .source = source,
+            .tokenizer = .init(source),
             .gpa = gpa,
             .arena = arena,
         };
     }
 
-    pub fn reportError(p: *Parser, file_path: []const u8, comptime format: []const u8, args: anytype) void {
-        const loc = p.lexer.getLocation(.first);
-        std.debug.print(
-            "{s}:{d}:{d}: error: ",
-            .{ file_path, loc.line_number, loc.line_offset },
-        );
+    pub fn tokenSlice(p: *Parser, token: zig.Token) []const u8 {
+        return p.source[token.loc.start..token.loc.end];
+    }
+
+    /// Report an error, in the format:
+    ///
+    /// ```
+    /// <file_path>:<token.line>:<token.column>: error: <format>
+    ///     <token.source_line>
+    ///                ^^^
+    /// ```
+    ///
+    /// (Where `^^^` points at `token`)
+    pub fn reportError(p: *Parser, file_path: []const u8, token: zig.Token, comptime format: []const u8, args: anytype) void {
+        const loc = zig.findLineColumn(p.source, token.loc.start);
+        std.debug.print("{s}:{d}:{d}: error: ", .{ file_path, loc.line, loc.column });
         std.debug.print(format ++ "\n", args);
+        std.debug.print("    {s}\n", .{loc.source_line});
+        std.debug.print("    ", .{});
+        for (0..loc.column) |_| std.debug.print(" ", .{});
+        for (0..token.loc.end - token.loc.start) |_| std.debug.print("^", .{});
+        std.debug.print("\n", .{});
     }
 
     pub const ParseError = error{
@@ -270,58 +198,90 @@ const Parser = struct {
         ExpectFailed,
     } || Allocator.Error;
 
-    pub fn expectToken(p: *Parser, file_path: []const u8, expected: Lexer.Token) !void {
-        const l = p.lexer;
-        if (l.getToken() == 0) {
-            p.reportError(file_path, "Expected token {f}, but reached end of input", .{expected});
+    pub fn expectToken(p: *Parser, file_path: []const u8, expected: zig.Token.Tag) !zig.Token {
+        const tok = p.tokenizer.next();
+        // HACK: treat keywords as identifiers
+        if (tok.tag != expected and expected != .identifier) {
+            p.reportError(file_path, tok, "Expected token {t}, but got {t}", .{ expected, tok.tag });
             return error.ExpectFailed;
-        }
-        if (l.impl.token != @intFromEnum(expected)) {
-            p.reportError(file_path, "Expected token {f}, but got {f}", .{ expected, l.token() });
-            return error.ExpectFailed;
-        }
+        } else if (tok.tag != expected) switch (tok.tag) {
+            // If we are in this switch statement, it is because tok.tag != expected, and expected == .identifier
+
+            // zig fmt: off
+            .keyword_addrspace,   .keyword_align,   .keyword_allowzero,   .keyword_and,
+            .keyword_anyframe,    .keyword_anytype, .keyword_asm,         .keyword_break,
+            .keyword_callconv,    .keyword_catch,   .keyword_comptime,    .keyword_const,
+            .keyword_continue,    .keyword_defer,   .keyword_else,        .keyword_enum,
+            .keyword_errdefer,    .keyword_error,   .keyword_export,      .keyword_extern,
+            .keyword_fn,          .keyword_for,     .keyword_if,          .keyword_inline,
+            .keyword_linksection, .keyword_noalias, .keyword_noinline,    .keyword_nosuspend,
+            .keyword_opaque,      .keyword_or,      .keyword_orelse,      .keyword_packed,
+            .keyword_pub,         .keyword_resume,  .keyword_return,      .keyword_struct,
+            .keyword_suspend,     .keyword_switch,  .keyword_test,        .keyword_threadlocal,
+            .keyword_try,         .keyword_union,   .keyword_unreachable, .keyword_var,
+            .keyword_volatile,    .keyword_while,
+            // zig fmt: on
+            => {
+                // HACK: Keywords are treated as identifiers
+                return tok;
+            },
+            else => {
+                p.reportError(file_path, tok, "Expected token {t}, but got {t}", .{ expected, tok.tag });
+                return error.ExpectFailed;
+            },
+        };
+        return tok;
     }
 
     pub fn parseValue(p: *Parser, file_path: []const u8) ParseError!Value {
-        const l = p.lexer;
-        if (l.getToken() == 0) {
-            p.reportError(file_path, "Expected value, but reached end of input", .{});
-            return error.ParseFailed;
-        }
-        switch (l.token()) {
-            Lexer.Token.fromChar('{') => {
+        const tok = p.tokenizer.next();
+        switch (tok.tag) {
+            .eof => {
+                p.reportError(file_path, tok, "Expected value, but reached end of input", .{});
+                return error.ParseFailed;
+            },
+            .l_brace => {
                 const object = try p.parseObjectBody(file_path);
-                try p.expectToken(file_path, .fromChar('}'));
+                _ = try p.expectToken(file_path, .r_brace);
                 return .{ .object = object };
             },
-            .floatlit => return .{
-                .float = @floatCast(l.impl.real_number),
+            .number_literal => {
+                const f = std.fmt.parseFloat(f64, p.tokenSlice(tok)) catch unreachable;
+                return .{ .float = f };
             },
-            .id => {
-                if (std.mem.eql(u8, "true", l.string())) {
-                    return .{
-                        .boolean = true,
-                    };
-                } else if (std.mem.eql(u8, "false", l.string())) {
-                    return .{
-                        .boolean = false,
-                    };
+            // Annoying side effect of using the Zig parser, have to handle keywords
+            // zig fmt: off
+            .identifier,          .keyword_addrspace,   .keyword_align,   .keyword_allowzero,
+            .keyword_and,         .keyword_anyframe,    .keyword_anytype, .keyword_asm,
+            .keyword_break,       .keyword_callconv,    .keyword_catch,   .keyword_comptime,
+            .keyword_const,       .keyword_continue,    .keyword_defer,   .keyword_else,
+            .keyword_enum,        .keyword_errdefer,    .keyword_error,   .keyword_export,
+            .keyword_extern,      .keyword_fn,          .keyword_for,     .keyword_if,
+            .keyword_inline,      .keyword_linksection, .keyword_noalias, .keyword_noinline,
+            .keyword_nosuspend,   .keyword_opaque,      .keyword_or,      .keyword_orelse,
+            .keyword_packed,      .keyword_pub,         .keyword_resume,  .keyword_return,
+            .keyword_struct,      .keyword_suspend,     .keyword_switch,  .keyword_test,
+            .keyword_threadlocal, .keyword_try,         .keyword_union,   .keyword_unreachable,
+            .keyword_var,         .keyword_volatile,    .keyword_while,
+            // zig fmt: on
+            => {
+                if (std.mem.eql(u8, "true", p.tokenSlice(tok))) {
+                    return .{ .boolean = true };
+                } else if (std.mem.eql(u8, "false", p.tokenSlice(tok))) {
+                    return .{ .boolean = false };
                 }
 
                 var path: std.ArrayList([]const u8) = .empty;
                 defer path.deinit(p.gpa);
-                try path.append(p.gpa, try p.arena.dupe(u8, l.string()));
-                var saved_l = l.*;
+                try path.append(p.gpa, try p.arena.dupe(u8, p.tokenSlice(tok)));
 
-                assert(l.getToken() != 0); // TODO: handle it?
-
-                while (l.token() == Lexer.Token.fromChar('.')) {
-                    try p.expectToken(file_path, .id);
-                    try path.append(p.gpa, try p.arena.dupe(u8, l.string()));
-                    saved_l = l.*;
-                    assert(l.getToken() != 0); // TODO: handle it?
+                var saved_tokenizer = p.tokenizer;
+                while (p.tokenizer.next().tag == .period) {
+                    const id = try p.expectToken(file_path, .identifier);
+                    try path.append(p.gpa, try p.arena.dupe(u8, p.tokenSlice(id)));
+                    saved_tokenizer = p.tokenizer;
                 }
-                l.* = saved_l;
+                p.tokenizer = saved_tokenizer;
 
                 const expr: Value.Expr = .{ .variable = .{
                     .path = try p.arena.dupe([]const u8, path.items),
@@ -329,45 +289,43 @@ const Parser = struct {
 
                 return .{ .expr = expr };
             },
-            .dqstring => return .{
-                .string = try p.arena.dupe(u8, l.string()),
+            .string_literal => return .{
+                // TODO: Proper string handling (escapes)
+                .string = try p.arena.dupe(u8, p.source[tok.loc.start + 1 .. tok.loc.end - 1]),
             },
-            else => |t| {
-                p.reportError(file_path, "invalid token: {t}", .{t});
-                return error.ParseFailed;
-            },
-            _ => |t| {
-                p.reportError(file_path, "invalid token: {f}", .{t});
+            else => {
+                p.reportError(file_path, tok, "invalid token: {t}", .{tok.tag});
                 return error.ParseFailed;
             },
         }
     }
 
     pub fn parseObjectBody(p: *Parser, file_path: []const u8) ParseError!Value.Object {
-        const l = p.lexer;
         var kvs: std.ArrayList(Value.Object.Kvs) = .empty;
         defer kvs.deinit(p.gpa); // NOTE: The kvs array doesn't live past this function. It is copied into an arena
         while (true) {
-            const saved_l = l.*;
-            if (l.getToken() == 0 or l.token() == Lexer.Token.fromChar('}') or l.token() == .eof) {
-                // Don't consume the `}` token after the object body
-                if (l.token() == Lexer.Token.fromChar('}')) l.* = saved_l;
-                return .{
-                    .items = try p.arena.dupe(Value.Object.Kvs, kvs.items),
-                };
-            }
-            l.* = saved_l;
+            {
+                const saved_tokenizer = p.tokenizer;
+                const tok = p.tokenizer.next();
+                defer p.tokenizer = saved_tokenizer;
 
-            try p.expectToken(file_path, .id);
-            const key = try p.arena.dupe(u8, l.string());
+                if (tok.tag == .r_brace or tok.tag == .eof) {
+                    return .{
+                        .items = try p.arena.dupe(Value.Object.Kvs, kvs.items),
+                    };
+                }
+            }
+
+            const id = try p.expectToken(file_path, .identifier);
+            const key = try p.arena.dupe(u8, p.tokenSlice(id));
             for (kvs.items) |kv| if (std.mem.eql(u8, kv.key, key)) {
-                p.reportError(file_path, "Redefinition of field \"{s}\"", .{key});
+                p.reportError(file_path, id, "Redefinition of field \"{s}\"", .{key});
                 return error.ParseFailed;
             };
-            try p.expectToken(file_path, .fromChar('='));
+            _ = try p.expectToken(file_path, .equal);
             const value = try p.parseValue(file_path);
             try kvs.append(p.gpa, .{ .key = key, .value = value });
-            try p.expectToken(file_path, .fromChar(','));
+            _ = try p.expectToken(file_path, .comma);
         }
     }
 };
@@ -379,17 +337,15 @@ pub const Node = union(Kind) {
     };
 };
 
-pub fn load(gpa: Allocator, arena: Allocator, input: []const u8, file_path: []const u8) !Value {
-    var string_store: [512]u8 = undefined;
-    var l: Lexer = .init(input, &string_store);
-    var p: Parser = .init(gpa, arena, &l);
+pub fn load(gpa: Allocator, arena: Allocator, input: [:0]const u8, file_path: []const u8) !Value {
+    var p: Parser = .init(gpa, arena, input);
     return .{
         .object = try p.parseObjectBody(file_path),
     };
 }
 
 pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) !Value {
-    const input = try Io.Dir.cwd().readFileAlloc(io, file_path, gpa, .unlimited);
+    const input = try Io.Dir.cwd().readFileAllocOptions(io, file_path, gpa, .unlimited, .of(u8), 0);
     defer gpa.free(input);
 
     return load(gpa, arena, input, file_path);
@@ -406,7 +362,7 @@ test load {
         \\foo = {
         \\  bar = "bla",
         \\},
-        \\baz = 123.0,
+        \\baz = 123,
         \\quux = {},
     , "<string 2>");
 
@@ -453,7 +409,7 @@ test "Value.getValue" {
         \\    },
         \\    title = {
         \\        top = 0.37,
-        \\        left = 0.59,
+        \\        left = style.thumbnail.left,
         \\        font_path = "./data/fonts/iosevka-bold.ttf",
         \\        font_size = 0.04,
         \\        align = "center",
@@ -465,7 +421,13 @@ test "Value.getValue" {
         \\        align = "center",
         \\    },
         \\},
+        \\bla = 123,
     , "<string 1>");
+
+    try std.testing.expectEqual(
+        123,
+        try value.get(f64, &.{"bla"}),
+    );
 
     try std.testing.expectEqualStrings(
         "center",
@@ -478,5 +440,10 @@ test "Value.getValue" {
     try std.testing.expectEqual(
         true,
         try value.get(bool, &.{ "style", "thumbnail", "frame" }),
+    );
+
+    try std.testing.expectEqual(
+        0.59,
+        try value.get(f64, &.{ "style", "title", "left" }),
     );
 }
