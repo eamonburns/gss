@@ -43,7 +43,17 @@ pub fn main(init: std.process.Init) void {
 
         std.debug.print("{f}\n", .{result});
     } else {
-        std.debug.print("{f}\n", .{value});
+        std.debug.print(
+            \\---
+            \\{f}
+            \\---
+            \\
+        , .{value});
+
+        repl(io, gpa, value) catch |err| switch (err) {
+            error.OutOfMemory => Cmd.oom(arg0),
+            else => |e| Cmd.fatal(arg0, "unknown: {t}", .{e}),
+        };
     }
 }
 
@@ -79,9 +89,46 @@ const Cmd = struct {
             \\
             \\Parameters:
             \\  <file>   Name of Casl file.
-            \\  [query]  Optional query. If not provided, the entire file will be dumped.
+            \\  [query]  Optional query. If not provided, the REPL will be started.
             \\
         , .{arg0});
         std.process.exit(status);
     }
 };
+
+fn repl(io: Io, gpa: std.mem.Allocator, value: casl.Value) !void {
+    const stdin_file = Io.File.stdin();
+    var stdin_buf: [1024]u8 = undefined;
+    var stdin_reader = stdin_file.reader(io, &stdin_buf);
+    const input = &stdin_reader.interface;
+    std.debug.print("> ", .{});
+    repl: while (try input.takeDelimiter('\n')) |query| : (std.debug.print("> ", .{})) {
+        const path = blk: {
+            var segments: std.ArrayList([]const u8) = .empty;
+            var iter = std.mem.splitScalar(u8, query, '.');
+            while (iter.next()) |segment| {
+                if (segment.len == 0) {
+                    std.debug.print("error: a segment in the query path is empty: {s}\n", .{query});
+                    continue :repl;
+                }
+                try segments.append(gpa, segment);
+            }
+
+            break :blk try segments.toOwnedSlice(gpa);
+        };
+        defer gpa.free(path);
+
+        const result = value.getValue(path) catch |err| switch (err) {
+            error.StackOverflow => {
+                std.debug.print("error: recursive value\n", .{});
+                continue :repl;
+            },
+            error.Missing => {
+                std.debug.print("error: value does not exist\n", .{});
+                continue :repl;
+            },
+        };
+
+        std.debug.print("{f}\n", .{result});
+    }
+}
