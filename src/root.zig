@@ -202,7 +202,7 @@ const Parser = struct {
         const tok = p.tokenizer.next();
         // HACK: treat keywords as identifiers
         if (tok.tag != expected and expected != .identifier) {
-            p.reportError(file_path, tok, "Expected token {t}, but got {t}", .{ expected, tok.tag });
+            p.reportError(file_path, tok, "Expected {t}, but got {t}", .{ expected, tok.tag });
             return error.ExpectFailed;
         } else if (tok.tag != expected) switch (tok.tag) {
             // If we are in this switch statement, it is because tok.tag != expected, and expected == .identifier
