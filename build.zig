@@ -53,6 +53,7 @@ pub fn build(b: *std.Build) void {
     doc_test_step.dependOn(&doc_test_cmd.step);
 
     doc_test_cmd.addFileArg(b.path("README.md"));
+    doc_test_cmd.addFileArg(b.path("data/style.casl"));
 
     const mod_tests = b.addTest(.{
         .root_module = casl_mod,
