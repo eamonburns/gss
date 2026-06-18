@@ -4,7 +4,7 @@ Casl is a configuration file format inspired by the [Nix language](https://nix.d
 
 A Casl file is made up of key/value pairs:
 
-```c
+```c casl
 foo = 10.0,
 bar = true,
 baz = "thing",
@@ -19,7 +19,7 @@ A Casl file can be queried using a path:
 (Note: all paths are "absolute" at the moment. See [#3](https://github.com/eamonburns/casl/issues/3))
 
 Paths can be used as values:
-```c
+```c casl
 style = {
     thumbnail = {
         left = 0.6,

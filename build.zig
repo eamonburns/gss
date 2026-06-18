@@ -39,6 +39,21 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
+    const doc_test_exe = b.addExecutable(.{
+        .name = "doc_test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("build/doc_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    doc_test_exe.root_module.addImport("casl", casl_mod);
+    const doc_test_step = b.step("doc_test", "Run documentation tests");
+    const doc_test_cmd = b.addRunArtifact(doc_test_exe);
+    doc_test_step.dependOn(&doc_test_cmd.step);
+
+    doc_test_cmd.addFileArg(b.path("README.md"));
+
     const mod_tests = b.addTest(.{
         .root_module = casl_mod,
     });

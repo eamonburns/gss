@@ -1,7 +1,7 @@
 // vim: ft=casl syntax=c
 style = {
     screen = {
-        factor = 130.0,
+        factor = 130,
         frame  = false,
     },
     sign = {

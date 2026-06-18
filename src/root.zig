@@ -246,7 +246,10 @@ const Parser = struct {
                 return .{ .object = object };
             },
             .number_literal => {
-                const f = std.fmt.parseFloat(f64, p.tokenSlice(tok)) catch unreachable;
+                const f = std.fmt.parseFloat(f64, p.tokenSlice(tok)) catch {
+                    p.reportError(file_path, tok, "invalid number literal", .{});
+                    return error.ParseFailed;
+                };
                 return .{ .float = f };
             },
             // Annoying side effect of using the Zig parser, have to handle keywords
@@ -316,6 +319,7 @@ const Parser = struct {
     pub fn parseObjectBody(p: *Parser, file_path: []const u8) ParseError!Value.Object {
         var kvs: std.ArrayList(Value.Object.Kvs) = .empty;
         defer kvs.deinit(p.gpa); // NOTE: The kvs array doesn't live past this function. It is copied into an arena
+
         while (true) {
             {
                 const saved_tokenizer = p.tokenizer;
