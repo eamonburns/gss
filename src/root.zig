@@ -41,24 +41,31 @@ pub const Value = union(enum) {
     }
 
     fn formatInner(self: Value, root: *const Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
+        const indent = "  "; // TODO: Make configurable?
         switch (self) {
             .float => |float| try writer.print("{d}", .{float}),
             .boolean => |boolean| try writer.print("{}", .{boolean}),
             .string => |string| try writer.print("\"{s}\"", .{string}),
             .object => |object| {
-                // FIXME: Don't print \n at the end
-                for (object.items) |kv| {
-                    try writer.splatBytesAll("    ", level);
+                for (object.items, 0..) |kv, i| {
+                    try writer.splatBytesAll(indent, level);
                     try writer.print("{s} = ", .{kv.key});
                     if (kv.value == .object) {
-                        try writer.writeAll("{\n");
-                        try kv.value.formatInner(root, writer, level + 1);
-                        try writer.splatBytesAll("    ", level);
-                        try writer.writeByte('}');
+                        if (kv.value.object.items.len == 0) {
+                            try writer.writeAll("{}");
+                        } else {
+                            try writer.writeAll("{\n");
+                            try kv.value.formatInner(root, writer, level + 1);
+                            try writer.writeByte('\n');
+                            try writer.splatBytesAll(indent, level);
+                            try writer.writeAll("}");
+                        }
                     } else {
                         try kv.value.formatInner(root, writer, level + 1);
                     }
-                    try writer.writeAll(",\n");
+                    try writer.writeByte(',');
+                    // Newline after all but the last item
+                    if (i != object.items.len - 1) try writer.writeByte('\n');
                 }
             },
             .expr => |expr| switch (expr) {
@@ -354,15 +361,20 @@ pub const Node = union(Kind) {
     };
 };
 
-pub fn load(gpa: Allocator, arena: Allocator, input: [:0]const u8, file_path: []const u8) !Value {
+pub const LoadError = Parser.ParseError;
+pub fn load(gpa: Allocator, arena: Allocator, input: [:0]const u8, file_path: []const u8) LoadError!Value {
     var p: Parser = .init(gpa, arena, input);
     return .{
         .object = try p.parseObjectBody(file_path),
     };
 }
 
+pub const LoadFromFileError = LoadError || Io.File.OpenError || Io.File.Reader.Error || Allocator.Error;
 pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) !Value {
-    const input = try Io.Dir.cwd().readFileAllocOptions(io, file_path, gpa, .unlimited, .of(u8), 0);
+    const input = Io.Dir.cwd().readFileAllocOptions(io, file_path, gpa, .unlimited, .of(u8), 0) catch |err| switch (err) {
+        error.StreamTooLong => unreachable,
+        else => |e| return e,
+    };
     defer gpa.free(input);
 
     return load(gpa, arena, input, file_path);
