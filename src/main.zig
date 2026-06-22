@@ -6,7 +6,7 @@ const casl = @import("casl");
 pub fn main(init: std.process.Init) void {
     const io = init.io;
     const gpa = init.gpa;
-    const arena = init.arena;
+    const arena = init.arena.allocator();
 
     var args = init.minimal.args.iterateAllocator(init.gpa) catch |err| {
         std.debug.print("casl: error: {t}\n", .{err});
@@ -17,27 +17,24 @@ pub fn main(init: std.process.Init) void {
     const cmd: Cmd = .parse(arg0, &args);
 
     // TODO: Rename this (unfortunately, casl is taken...)
-    const value = casl.loadFromFile(io, gpa, arena.allocator(), cmd.file) catch |err| switch (err) {
+    const value = casl.loadFromFile(io, gpa, arena, cmd.file) catch |err| switch (err) {
         error.OutOfMemory => Cmd.oom(arg0),
         error.ParseFailed, error.ExpectFailed => Cmd.fatal(arg0, "unable to parse file", .{}),
         error.FileNotFound => Cmd.fatal(arg0, "file not found", .{}),
         else => |e| Cmd.fatal(arg0, "unknown: {t}", .{e}),
     };
 
-    if (cmd.query) |query| {
-        const path = blk: {
-            var segments: std.ArrayList([]const u8) = .empty;
-            var iter = std.mem.splitScalar(u8, query, '.');
-            while (iter.next()) |segment| {
-                if (segment.len == 0) Cmd.fatal(arg0, "a segment in the query path is empty: {s}", .{query});
-                segments.append(gpa, segment) catch Cmd.oom(arg0);
-            }
-
-            break :blk segments.toOwnedSlice(gpa) catch Cmd.oom(arg0);
+    if (cmd.query) |query_str| {
+        const query = casl.load(gpa, arena, query_str, cmd.file) catch |err| switch (err) {
+            error.OutOfMemory => Cmd.oom(arg0),
+            error.ParseFailed, error.ExpectFailed => Cmd.fatal(arg0, "unable to parse query", .{}),
         };
-        defer gpa.free(path);
 
-        const result = value.resolvePath(arena.allocator(), path) catch |err| switch (err) {
+        const result = query.resolveInner(
+            arena,
+            &value,
+            &.{ .casl = &query },
+        ) catch |err| switch (err) {
             error.OutOfMemory => Cmd.oom(arg0),
         };
 
@@ -60,7 +57,7 @@ pub fn main(init: std.process.Init) void {
 /// Struct to assist in parsing the command line
 const Cmd = struct {
     file: []const u8,
-    query: ?[]const u8,
+    query: ?[:0]const u8,
 
     pub fn parse(arg0: []const u8, args: *std.process.Args.Iterator) Cmd {
         const file = args.next() orelse fatal(arg0, "<file> is required", .{});
@@ -106,29 +103,23 @@ fn repl(io: Io, gpa: std.mem.Allocator, value: casl.Casl) !void {
     var stdin_reader = stdin_file.reader(io, &stdin_buf);
     const input = &stdin_reader.interface;
     std.debug.print("> ", .{});
-    repl: while (try input.takeDelimiter('\n')) |query| : (std.debug.print("> ", .{})) {
+    repl: while (try input.takeDelimiter('\n')) |query_str| : (std.debug.print("> ", .{})) {
         _ = arena_instance.reset(.retain_capacity);
 
-        const path = blk: {
-            var segments: std.ArrayList([]const u8) = .empty;
-            var iter = std.mem.splitScalar(u8, query, '.');
-            while (iter.next()) |segment| {
-                if (segment.len == 0) {
-                    std.debug.print("error: a segment in the query path is empty: {s}\n", .{query});
-                    continue :repl;
-                }
-                try segments.append(gpa, segment);
-            }
-
-            break :blk try segments.toOwnedSlice(gpa);
-        };
-        defer gpa.free(path);
-
-        const result = value.resolvePath(arena, path) catch |err| switch (err) {
-            error.OutOfMemory => {
-                std.debug.print("error: out of memory\n", .{});
+        const query = casl.load(gpa, arena, try arena.dupeZ(u8, query_str), "<repl>") catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.ParseFailed, error.ExpectFailed => {
+                std.debug.print("error: unable to parse query\n", .{});
                 continue :repl;
             },
+        };
+
+        const result = query.resolveInner(
+            arena,
+            &value,
+            &.{ .casl = &query },
+        ) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
         };
 
         std.debug.print("{f}\n", .{result});
