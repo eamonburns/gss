@@ -16,6 +16,7 @@ pub fn main(init: std.process.Init) void {
 
     const cmd: Cmd = .parse(arg0, &args);
 
+    // TODO: Rename this (unfortunately, casl is taken...)
     const value = casl.loadFromFile(io, gpa, arena.allocator(), cmd.file) catch |err| switch (err) {
         error.OutOfMemory => Cmd.oom(arg0),
         error.ParseFailed, error.ExpectFailed => Cmd.fatal(arg0, "unable to parse file", .{}),
@@ -36,9 +37,8 @@ pub fn main(init: std.process.Init) void {
         };
         defer gpa.free(path);
 
-        const result = value.getValue(path) catch |err| switch (err) {
-            error.StackOverflow => Cmd.fatal(arg0, "recursive value", .{}),
-            error.Missing => Cmd.fatal(arg0, "value does not exist", .{}),
+        const result = value.resolvePath(arena.allocator(), path) catch |err| switch (err) {
+            error.OutOfMemory => Cmd.oom(arg0),
         };
 
         std.debug.print("{f}\n", .{result});
@@ -96,13 +96,19 @@ const Cmd = struct {
     }
 };
 
-fn repl(io: Io, gpa: std.mem.Allocator, value: casl.Value) !void {
+fn repl(io: Io, gpa: std.mem.Allocator, value: casl.Casl) !void {
+    var arena_instance: std.heap.ArenaAllocator = .init(gpa);
+    defer arena_instance.deinit();
+    const arena = arena_instance.allocator();
+
     const stdin_file = Io.File.stdin();
     var stdin_buf: [1024]u8 = undefined;
     var stdin_reader = stdin_file.reader(io, &stdin_buf);
     const input = &stdin_reader.interface;
     std.debug.print("> ", .{});
     repl: while (try input.takeDelimiter('\n')) |query| : (std.debug.print("> ", .{})) {
+        _ = arena_instance.reset(.retain_capacity);
+
         const path = blk: {
             var segments: std.ArrayList([]const u8) = .empty;
             var iter = std.mem.splitScalar(u8, query, '.');
@@ -118,17 +124,14 @@ fn repl(io: Io, gpa: std.mem.Allocator, value: casl.Value) !void {
         };
         defer gpa.free(path);
 
-        const result = value.getValue(path) catch |err| switch (err) {
-            error.StackOverflow => {
-                std.debug.print("error: recursive value\n", .{});
-                continue :repl;
-            },
-            error.Missing => {
-                std.debug.print("error: value does not exist\n", .{});
+        const result = value.resolvePath(arena, path) catch |err| switch (err) {
+            error.OutOfMemory => {
+                std.debug.print("error: out of memory\n", .{});
                 continue :repl;
             },
         };
 
         std.debug.print("{f}\n", .{result});
     }
+    std.debug.print("\n", .{});
 }

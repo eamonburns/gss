@@ -5,12 +5,137 @@ const assert = std.debug.assert;
 
 const zig = std.zig;
 
+pub const Casl = union(enum) {
+    value: Value,
+    expr: Expr,
+
+    pub const Expr = union(enum) {
+        variable: struct {
+            path: []const []const u8,
+        },
+        object: Object,
+
+        pub const Object = struct {
+            items: []const Kvs,
+
+            const Kvs = struct {
+                key: []const u8,
+                value: Casl,
+            };
+        };
+    };
+
+    pub fn resolvePath(root: Casl, arena: Allocator, path: []const []const u8) Allocator.Error!Value {
+        const casl: Casl = .{ .expr = .{ .variable = .{ .path = path } } };
+        return resolveInner(&casl, arena, &root, &.{ .casl = &casl });
+    }
+
+    pub fn resolve(casl: Casl, arena: Allocator) Allocator.Error!Value {
+        return resolveInner(&casl, arena, &casl, &.{ .casl = &casl });
+    }
+    pub fn resolveInner(casl: *const Casl, arena: Allocator, root: *const Casl, stack: *const Stack) Allocator.Error!Value {
+        const expr = switch (casl.*) {
+            .value => |v| return v,
+            .expr => |e| e,
+        };
+
+        switch (expr) {
+            .object => |obj| {
+                const resolved_items = try arena.alloc(Value.Object.Kvs, obj.items.len);
+                for (obj.items, resolved_items) |*obj_kv, *resolved_kv| {
+                    resolved_kv.key = try arena.dupe(u8, obj_kv.key);
+                    const new_stack = stack.push(&obj_kv.value) catch return .recursive;
+                    resolved_kv.value = try obj_kv.value.resolveInner(arena, root, &new_stack);
+                }
+                return .{ .object = .{ .items = resolved_items } };
+            },
+            .variable => |v| {
+                var cursor = root;
+                for (v.path) |segment| {
+                    if (cursor.* != .expr or cursor.expr != .object) {
+                        return .missing;
+                    }
+                    const object = cursor.expr.object;
+                    cursor = for (object.items) |*kv| {
+                        if (std.mem.eql(u8, segment, kv.key)) break &kv.value;
+                    } else return .missing;
+                }
+
+                const new_stack = stack.push(cursor) catch return .recursive;
+                return cursor.resolveInner(arena, root, &new_stack);
+            },
+        }
+    }
+
+    const Stack = struct {
+        casl: *const Casl,
+        parent: ?*const Stack = null,
+
+        pub fn push(self: *const Stack, casl: *const Casl) !Stack {
+            var cursor = self;
+            while (cursor.parent) |parent| {
+                if (parent.casl == casl) return error.Recursive;
+                cursor = parent;
+            }
+
+            return .{
+                .casl = casl,
+                .parent = self,
+            };
+        }
+    };
+
+    pub fn format(
+        self: Casl,
+        writer: *std.Io.Writer,
+    ) std.Io.Writer.Error!void {
+        return self.formatInner(writer, 0);
+    }
+
+    pub fn formatInner(self: Casl, writer: *std.Io.Writer, level: usize) std.Io.Writer.Error!void {
+        const indent = "  "; // TODO: Make configurable?
+        switch (self) {
+            .value => |v| try v.formatInner(writer, level),
+            .expr => |e| switch (e) {
+                .variable => |variable| {
+                    for (variable.path, 0..) |segment, i| {
+                        if (i != 0) try writer.writeByte('.');
+                        try writer.writeAll(segment);
+                    }
+                },
+                .object => |object| {
+                    for (object.items, 0..) |kv, i| {
+                        try writer.splatBytesAll(indent, level);
+                        try writer.print("{s} = ", .{kv.key});
+                        if (kv.value == .expr and kv.value.expr == .object) {
+                            if (kv.value.expr.object.items.len == 0) {
+                                try writer.writeAll("{}");
+                            } else {
+                                try writer.writeAll("{\n");
+                                try kv.value.formatInner(writer, level + 1);
+                                try writer.writeByte('\n');
+                                try writer.splatBytesAll(indent, level);
+                                try writer.writeAll("}");
+                            }
+                        } else {
+                            try kv.value.formatInner(writer, level + 1);
+                        }
+                        try writer.writeByte(',');
+                        // Newline after all but the last item
+                        if (i != object.items.len - 1) try writer.writeByte('\n');
+                    }
+                },
+            },
+        }
+    }
+};
+
 pub const Value = union(enum) {
     float: f64,
     boolean: bool,
     string: []const u8,
     object: Object,
-    expr: Expr,
+    err: Error,
 
     pub const Object = struct {
         items: []const Kvs,
@@ -26,21 +151,16 @@ pub const Value = union(enum) {
         }
     };
 
-    pub const Expr = union(Kind) {
-        variable: struct {
-            path: []const []const u8,
-        },
+    pub const Error = error{ Recursive, Missing };
 
-        pub const Kind = enum {
-            variable,
-        };
-    };
+    pub const recursive: Value = .{ .err = error.Recursive };
+    pub const missing: Value = .{ .err = error.Missing };
 
     pub fn format(self: Value, writer: *Io.Writer) Io.Writer.Error!void {
-        try self.formatInner(&self, writer, 0);
+        try self.formatInner(writer, 0);
     }
 
-    fn formatInner(self: Value, root: *const Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
+    fn formatInner(self: Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
         const indent = "  "; // TODO: Make configurable?
         switch (self) {
             .float => |float| try writer.print("{d}", .{float}),
@@ -55,34 +175,22 @@ pub const Value = union(enum) {
                             try writer.writeAll("{}");
                         } else {
                             try writer.writeAll("{\n");
-                            try kv.value.formatInner(root, writer, level + 1);
+                            try kv.value.formatInner(writer, level + 1);
                             try writer.writeByte('\n');
                             try writer.splatBytesAll(indent, level);
                             try writer.writeAll("}");
                         }
                     } else {
-                        try kv.value.formatInner(root, writer, level + 1);
+                        try kv.value.formatInner(writer, level + 1);
                     }
                     try writer.writeByte(',');
                     // Newline after all but the last item
                     if (i != object.items.len - 1) try writer.writeByte('\n');
                 }
             },
-            .expr => |expr| switch (expr) {
-                .variable => |v| {
-                    const value = root.getValue(v.path) catch |err| switch (err) {
-                        error.StackOverflow => return writer.writeAll("[recursive]"),
-                        error.Missing => return writer.writeAll("[missing]"),
-                    };
-                    if (value == .object) {
-                        try writer.writeAll("{\n");
-                        try value.formatInner(root, writer, level + 1);
-                        try writer.splatBytesAll("    ", level);
-                        try writer.writeByte('}');
-                    } else {
-                        try value.formatInner(root, writer, level + 1);
-                    }
-                },
+            .err => |e| switch (e) {
+                error.Missing => try writer.writeAll("[missing]"),
+                error.Recursive => try writer.writeAll("[recursive]"),
             },
         }
     }
@@ -150,14 +258,7 @@ pub const Value = union(enum) {
             } else return error.Missing;
         }
 
-        const expr = switch (cursor) {
-            .expr => |e| e,
-            else => return cursor,
-        };
-
-        switch (expr) {
-            .variable => |v| return self.getValueInner(v.path, level + 1),
-        }
+        return cursor;
     }
 };
 
@@ -240,7 +341,7 @@ const Parser = struct {
         return tok;
     }
 
-    pub fn parseValue(p: *Parser, file_path: []const u8) ParseError!Value {
+    pub fn parseCasl(p: *Parser, file_path: []const u8) ParseError!Casl {
         const tok = p.tokenizer.next();
         switch (tok.tag) {
             .eof => {
@@ -250,14 +351,14 @@ const Parser = struct {
             .l_brace => {
                 const object = try p.parseObjectBody(file_path);
                 _ = try p.expectToken(file_path, .r_brace);
-                return .{ .object = object };
+                return .{ .expr = .{ .object = object } };
             },
             .number_literal => {
                 const f = std.fmt.parseFloat(f64, p.tokenSlice(tok)) catch {
                     p.reportError(file_path, tok, "invalid number literal", .{});
                     return error.ParseFailed;
                 };
-                return .{ .float = f };
+                return .{ .value = .{ .float = f } };
             },
             // Annoying side effect of using the Zig parser, have to handle keywords
             // zig fmt: off
@@ -276,9 +377,9 @@ const Parser = struct {
             // zig fmt: on
             => {
                 if (std.mem.eql(u8, "true", p.tokenSlice(tok))) {
-                    return .{ .boolean = true };
+                    return .{ .value = .{ .boolean = true } };
                 } else if (std.mem.eql(u8, "false", p.tokenSlice(tok))) {
-                    return .{ .boolean = false };
+                    return .{ .value = .{ .boolean = false } };
                 }
 
                 var path: std.ArrayList([]const u8) = .empty;
@@ -293,7 +394,7 @@ const Parser = struct {
                 }
                 p.tokenizer = saved_tokenizer;
 
-                const expr: Value.Expr = .{ .variable = .{
+                const expr: Casl.Expr = .{ .variable = .{
                     .path = try p.arena.dupe([]const u8, path.items),
                 } };
 
@@ -310,10 +411,12 @@ const Parser = struct {
                     .success => {},
                 }
                 return .{
-                    // NOTE: In the optimistic case, where the parsed string is
-                    // shorter than the string literal, this should not pollute
-                    // the arena with garbage allocations.
-                    .string = try aw.toOwnedSlice(),
+                    .value = .{
+                        // NOTE: In the optimistic case, where the parsed string is
+                        // shorter than the string literal, this should not pollute
+                        // the arena with garbage allocations.
+                        .string = try aw.toOwnedSlice(),
+                    },
                 };
             },
             else => {
@@ -323,8 +426,8 @@ const Parser = struct {
         }
     }
 
-    pub fn parseObjectBody(p: *Parser, file_path: []const u8) ParseError!Value.Object {
-        var kvs: std.ArrayList(Value.Object.Kvs) = .empty;
+    pub fn parseObjectBody(p: *Parser, file_path: []const u8) ParseError!Casl.Expr.Object {
+        var kvs: std.ArrayList(Casl.Expr.Object.Kvs) = .empty;
         defer kvs.deinit(p.gpa); // NOTE: The kvs array doesn't live past this function. It is copied into an arena
 
         while (true) {
@@ -335,7 +438,7 @@ const Parser = struct {
 
                 if (tok.tag == .r_brace or tok.tag == .eof) {
                     return .{
-                        .items = try p.arena.dupe(Value.Object.Kvs, kvs.items),
+                        .items = try p.arena.dupe(Casl.Expr.Object.Kvs, kvs.items),
                     };
                 }
             }
@@ -347,7 +450,7 @@ const Parser = struct {
                 return error.ParseFailed;
             };
             _ = try p.expectToken(file_path, .equal);
-            const value = try p.parseValue(file_path);
+            const value = try p.parseCasl(file_path);
             try kvs.append(p.gpa, .{ .key = key, .value = value });
             _ = try p.expectToken(file_path, .comma);
         }
@@ -362,15 +465,15 @@ pub const Node = union(Kind) {
 };
 
 pub const LoadError = Parser.ParseError;
-pub fn load(gpa: Allocator, arena: Allocator, input: [:0]const u8, file_path: []const u8) LoadError!Value {
+pub fn load(gpa: Allocator, arena: Allocator, input: [:0]const u8, file_path: []const u8) LoadError!Casl {
     var p: Parser = .init(gpa, arena, input);
-    return .{
+    return .{ .expr = .{
         .object = try p.parseObjectBody(file_path),
-    };
+    } };
 }
 
 pub const LoadFromFileError = LoadError || Io.File.OpenError || Io.File.Reader.Error || Allocator.Error;
-pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) !Value {
+pub fn loadFromFile(io: Io, gpa: Allocator, arena: Allocator, file_path: []const u8) LoadFromFileError!Casl {
     const input = Io.Dir.cwd().readFileAllocOptions(io, file_path, gpa, .unlimited, .of(u8), 0) catch |err| switch (err) {
         error.StreamTooLong => unreachable,
         else => |e| return e,
@@ -424,9 +527,10 @@ test load {
 }
 
 test "Value.getValue" {
-    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena.deinit();
-    const value = try load(std.testing.allocator, arena.allocator(),
+    var arena_instance: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_instance.deinit();
+    const arena = arena_instance.allocator();
+    const casl = try load(std.testing.allocator, arena,
         \\style = {
         \\    thumbnail = {
         \\        frame = true,
@@ -453,26 +557,26 @@ test "Value.getValue" {
         \\bla = 123,
     , "<string 1>");
 
-    try std.testing.expectEqual(
-        123,
-        try value.get(f64, &.{"bla"}),
+    try std.testing.expectEqualDeep(
+        Value{ .float = 123 },
+        try casl.resolvePath(arena, &.{"bla"}),
     );
 
-    try std.testing.expectEqualStrings(
-        "center",
-        try value.get([]const u8, &.{ "style", "link", "align" }),
+    try std.testing.expectEqualDeep(
+        Value{ .string = "center" },
+        try casl.resolvePath(arena, &.{ "style", "link", "align" }),
     );
-    try std.testing.expectEqual(
-        0.04,
-        try value.get(f64, &.{ "style", "title", "font_size" }),
+    try std.testing.expectEqualDeep(
+        Value{ .float = 0.04 },
+        try casl.resolvePath(arena, &.{ "style", "title", "font_size" }),
     );
-    try std.testing.expectEqual(
-        true,
-        try value.get(bool, &.{ "style", "thumbnail", "frame" }),
+    try std.testing.expectEqualDeep(
+        Value{ .boolean = true },
+        try casl.resolvePath(arena, &.{ "style", "thumbnail", "frame" }),
     );
 
-    try std.testing.expectEqual(
-        0.59,
-        try value.get(f64, &.{ "style", "title", "left" }),
+    try std.testing.expectEqualDeep(
+        Value{ .float = 0.59 },
+        try casl.resolvePath(arena, &.{ "style", "title", "left" }),
     );
 }
