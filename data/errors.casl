@@ -1,0 +1,8 @@
+// vim: ft=casl syntax=c
+
+missing = lskdjflskdjf,
+recursive = recursive,
+rec1 = rec2.rec3,
+rec2 = {
+    rec3 = rec1,
+},
