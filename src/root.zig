@@ -467,9 +467,18 @@ pub const Node = union(Kind) {
 pub const LoadError = Parser.ParseError;
 pub fn load(gpa: Allocator, arena: Allocator, input: [:0]const u8, file_path: []const u8) LoadError!Casl {
     var p: Parser = .init(gpa, arena, input);
-    return .{ .expr = .{
-        .object = try p.parseObjectBody(file_path),
-    } };
+
+    const saved_tokenizer = p.tokenizer;
+    if (p.tokenizer.next().tag == .identifier and p.tokenizer.next().tag == .equal) {
+        p.tokenizer = saved_tokenizer;
+
+        return .{ .expr = .{
+            .object = try p.parseObjectBody(file_path),
+        } };
+    }
+    p.tokenizer = saved_tokenizer;
+
+    return p.parseCasl(file_path);
 }
 
 pub const LoadFromFileError = LoadError || Io.File.OpenError || Io.File.Reader.Error || Allocator.Error;
