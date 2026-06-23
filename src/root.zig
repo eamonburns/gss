@@ -27,13 +27,13 @@ pub const Casl = union(enum) {
 
     pub fn resolvePath(root: Casl, arena: Allocator, path: []const []const u8) Allocator.Error!Value {
         const casl: Casl = .{ .expr = .{ .variable = .{ .path = path } } };
-        return resolveInner(&casl, arena, &root, &.{ .casl = &casl });
+        return resolveValueInner(&casl, arena, &root, &.{ .casl = &casl });
     }
 
-    pub fn resolve(casl: Casl, arena: Allocator) Allocator.Error!Value {
-        return resolveInner(&casl, arena, &casl, &.{ .casl = &casl });
+    pub fn resolveValue(casl: Casl, arena: Allocator) Allocator.Error!Value {
+        return resolveValueInner(&casl, arena, &casl, &.{ .casl = &casl });
     }
-    pub fn resolveInner(casl: *const Casl, arena: Allocator, root: *const Casl, stack: *const Stack) Allocator.Error!Value {
+    pub fn resolveValueInner(casl: *const Casl, arena: Allocator, root: *const Casl, stack: *const Stack) Allocator.Error!Value {
         const expr = switch (casl.*) {
             .value => |v| return v,
             .expr => |e| e,
@@ -45,7 +45,7 @@ pub const Casl = union(enum) {
                 for (obj.items, resolved_items) |*obj_kv, *resolved_kv| {
                     resolved_kv.key = try arena.dupe(u8, obj_kv.key);
                     const new_stack = stack.push(&obj_kv.value) catch return .recursive;
-                    resolved_kv.value = try obj_kv.value.resolveInner(arena, root, &new_stack);
+                    resolved_kv.value = try obj_kv.value.resolveValueInner(arena, root, &new_stack);
                 }
                 return .{ .object = .{ .items = resolved_items } };
             },
@@ -62,7 +62,7 @@ pub const Casl = union(enum) {
                 }
 
                 const new_stack = stack.push(cursor) catch return .recursive;
-                return cursor.resolveInner(arena, root, &new_stack);
+                return cursor.resolveValueInner(arena, root, &new_stack);
             },
         }
     }
@@ -89,13 +89,12 @@ pub const Casl = union(enum) {
         self: Casl,
         writer: *std.Io.Writer,
     ) std.Io.Writer.Error!void {
-        return self.formatInner(writer, 0);
+        return self.formatInner(writer, "  ", 0);
     }
 
-    pub fn formatInner(self: Casl, writer: *std.Io.Writer, level: usize) std.Io.Writer.Error!void {
-        const indent = "  "; // TODO: Make configurable?
+    pub fn formatInner(self: Casl, writer: *std.Io.Writer, indent: []const u8, level: usize) std.Io.Writer.Error!void {
         switch (self) {
-            .value => |v| try v.formatInner(writer, level),
+            .value => |v| try v.formatInner(writer, indent, level),
             .expr => |e| switch (e) {
                 .variable => |variable| {
                     for (variable.path, 0..) |segment, i| {
@@ -112,13 +111,13 @@ pub const Casl = union(enum) {
                                 try writer.writeAll("{}");
                             } else {
                                 try writer.writeAll("{\n");
-                                try kv.value.formatInner(writer, level + 1);
+                                try kv.value.formatInner(writer, indent, level + 1);
                                 try writer.writeByte('\n');
                                 try writer.splatBytesAll(indent, level);
                                 try writer.writeAll("}");
                             }
                         } else {
-                            try kv.value.formatInner(writer, level + 1);
+                            try kv.value.formatInner(writer, indent, level + 1);
                         }
                         try writer.writeByte(',');
                         // Newline after all but the last item
@@ -157,11 +156,10 @@ pub const Value = union(enum) {
     pub const missing: Value = .{ .err = error.Missing };
 
     pub fn format(self: Value, writer: *Io.Writer) Io.Writer.Error!void {
-        try self.formatInner(writer, 0);
+        try self.formatInner(writer, "  ", 0);
     }
 
-    fn formatInner(self: Value, writer: *Io.Writer, level: usize) Io.Writer.Error!void {
-        const indent = "  "; // TODO: Make configurable?
+    fn formatInner(self: Value, writer: *Io.Writer, indent: []const u8, level: usize) Io.Writer.Error!void {
         switch (self) {
             .float => |float| try writer.print("{d}", .{float}),
             .boolean => |boolean| try writer.print("{}", .{boolean}),
@@ -175,13 +173,13 @@ pub const Value = union(enum) {
                             try writer.writeAll("{}");
                         } else {
                             try writer.writeAll("{\n");
-                            try kv.value.formatInner(writer, level + 1);
+                            try kv.value.formatInner(writer, indent, level + 1);
                             try writer.writeByte('\n');
                             try writer.splatBytesAll(indent, level);
                             try writer.writeAll("}");
                         }
                     } else {
-                        try kv.value.formatInner(writer, level + 1);
+                        try kv.value.formatInner(writer, indent, level + 1);
                     }
                     try writer.writeByte(',');
                     // Newline after all but the last item

@@ -30,7 +30,7 @@ pub fn main(init: std.process.Init) void {
             error.ParseFailed, error.ExpectFailed => Cmd.fatal(arg0, "unable to parse query", .{}),
         };
 
-        const result = query.resolveInner(
+        const result = query.resolveValueInner(
             arena,
             &value,
             &.{ .casl = &query },
@@ -114,7 +114,7 @@ fn repl(io: Io, gpa: std.mem.Allocator, value: casl.Casl) !void {
             },
         };
 
-        const result = query.resolveInner(
+        const result = query.resolveValueInner(
             arena,
             &value,
             &.{ .casl = &query },
