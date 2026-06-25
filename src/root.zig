@@ -175,6 +175,13 @@ pub const Value = union(enum) {
             const v: Value = .{ .object = self };
             try v.format(writer);
         }
+
+        pub fn get(self: Object, key: []const u8) ?Value {
+            for (self.items) |kv| {
+                if (std.mem.eql(u8, kv.key, key)) return kv.value;
+            }
+            return null;
+        }
     };
 
     pub const Error = error{ Recursive, Missing };
@@ -273,11 +280,107 @@ pub const Value = union(enum) {
                     error.Missing => unreachable,
                     else => |e| return e,
                 },
+                .@"struct" => |str| if (value == .object) {
+                    var s: T = undefined;
+                    inline for (str.fields) |field| {
+                        const v: Value = if (value.object.get(field.name)) |v| blk: {
+                            if (v == .err) return if (v.err == error.Missing) error.TypeMismatch else return v.err;
+                            break :blk v;
+                        } else .missing;
+
+                        @field(s, field.name) = v.toType(field.type) catch |err| if (err == error.Missing) {
+                            return error.TypeMismatch;
+                        } else return err;
+                    }
+                    return s;
+                } else return error.TypeMismatch,
+                .@"enum" => if (value == .string) {
+                    if (std.meta.stringToEnum(T, value.string)) |v| return v;
+                    return error.TypeMismatch; // TODO: Better error message
+                } else return error.TypeMismatch,
                 else => @compileError("invalid type: " ++ @typeName(T)),
             },
         }
     }
 };
+
+test "Value.toType" {
+    const value: Value = .{ .object = .{ .items = &.{
+        .{ .key = "a", .value = .{ .float = 1 } },
+        .{ .key = "b", .value = .{ .boolean = false } },
+        .{ .key = "c", .value = .{ .string = "yup" } },
+    } } };
+
+    const S = struct {
+        a: f64,
+        b: bool,
+        c: []const u8,
+        o: ?f64,
+    };
+    const s = try value.toType(S);
+    try std.testing.expectEqual(1, s.a);
+    try std.testing.expectEqual(false, s.b);
+    try std.testing.expectEqualStrings("yup", s.c);
+    try std.testing.expectEqual(null, s.o);
+
+    const value_err: Value = .{ .object = .{ .items = &.{
+        .{ .key = "a", .value = .{ .float = 1 } },
+        .{ .key = "b", .value = .{ .boolean = false } },
+        .{ .key = "c", .value = .{ .string = "yup" } },
+        .{ .key = "o", .value = .missing },
+    } } };
+    try std.testing.expectError(error.TypeMismatch, value_err.toType(S));
+
+    const A = struct {
+        a: f64,
+    };
+    const a = try value.toType(A);
+    try std.testing.expectEqual(1, a.a);
+
+    const B = struct {
+        b: bool,
+    };
+    const b = try value.toType(B);
+    try std.testing.expectEqual(false, b.b);
+
+    const Person = struct {
+        name: []const u8,
+        age: f64,
+        pet: ?Pet,
+
+        const Pet = struct {
+            name: []const u8,
+            species: Species,
+        };
+
+        const Species = enum {
+            kangaroo,
+            cat,
+            frog,
+
+            // 🤔 Yeah, I think that is the list of all animals
+            // I can't think of any more
+        };
+    };
+    try std.testing.expectError(error.TypeMismatch, value.toType(Person));
+
+    const person_value: Value = .{ .object = .{ .items = &.{
+        .{ .key = "name", .value = .{ .string = "bob" } },
+        .{ .key = "age", .value = .{ .float = 25 } },
+        .{ .key = "pet", .value = .{ .object = .{ .items = &.{
+            .{ .key = "name", .value = .{ .string = "bobby" } },
+            .{ .key = "species", .value = .{ .string = "kangaroo" } },
+        } } } },
+    } } };
+    const person = try person_value.toType(Person);
+    try std.testing.expectEqualStrings("bob", person.name);
+    try std.testing.expectEqual(25, person.age);
+    try std.testing.expectEqualStrings("bobby", person.pet.?.name);
+    try std.testing.expectEqual(.kangaroo, person.pet.?.species);
+
+    const e: Value = .{ .string = "bla" };
+    try std.testing.expectError(error.TypeMismatch, e.toType(Person.Species));
+}
 
 const Parser = struct {
     source: [:0]const u8,
