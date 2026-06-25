@@ -25,15 +25,38 @@ pub const Casl = union(enum) {
         };
     };
 
-    pub fn resolvePath(root: Casl, arena: Allocator, path: []const []const u8) Allocator.Error!Value {
+    pub fn ResolveError(T: type) type {
+        return Allocator.Error || Value.Error || Value.ToTypeError(T);
+    }
+
+    pub fn resolvePath(root: Casl, comptime T: type, arena: Allocator, path: []const []const u8) ResolveError(T)!T {
+        const casl: Casl = .{ .expr = .{ .variable = .{ .path = path } } };
+        return resolveWithContext(casl, T, arena, &root);
+    }
+
+    pub fn resolveValuePath(root: Casl, arena: Allocator, path: []const []const u8) Allocator.Error!Value {
         const casl: Casl = .{ .expr = .{ .variable = .{ .path = path } } };
         return resolveValueInner(&casl, arena, &root, &.{ .casl = &casl });
+    }
+
+    pub fn resolve(casl: Casl, comptime T: type, arena: Allocator) ResolveError(T)!T {
+        return resolveWithContext(casl, T, arena, &casl);
     }
 
     pub fn resolveValue(casl: Casl, arena: Allocator) Allocator.Error!Value {
         return resolveValueInner(&casl, arena, &casl, &.{ .casl = &casl });
     }
-    pub fn resolveValueInner(casl: *const Casl, arena: Allocator, root: *const Casl, stack: *const Stack) Allocator.Error!Value {
+
+    pub fn resolveWithContext(casl: Casl, comptime T: type, arena: Allocator, ctx: *const Casl) ResolveError(T)!T {
+        const result = try resolveValueInner(&casl, arena, ctx, &.{ .casl = &casl });
+        return result.toType(T);
+    }
+
+    pub fn resolveValueWithContext(casl: Casl, arena: Allocator, ctx: *const Casl) Allocator.Error!Value {
+        return resolveValueInner(&casl, arena, ctx, &.{ .casl = &casl });
+    }
+
+    fn resolveValueInner(casl: *const Casl, arena: Allocator, root: *const Casl, stack: *const Stack) Allocator.Error!Value {
         const expr = switch (casl.*) {
             .value => |v| return v,
             .expr => |e| e,
@@ -130,11 +153,15 @@ pub const Casl = union(enum) {
 };
 
 pub const Value = union(enum) {
-    float: f64,
-    boolean: bool,
-    string: []const u8,
+    float: Float,
+    boolean: Boolean,
+    string: String,
     object: Object,
     err: Error,
+
+    pub const Float = f64;
+    pub const Boolean = bool;
+    pub const String = []const u8;
 
     pub const Object = struct {
         items: []const Kvs,
@@ -193,70 +220,62 @@ pub const Value = union(enum) {
         }
     }
 
-    pub const GetFallbackError = GetValueFallbackError || error{
-        TypeMismatch,
-    };
-    pub fn getFallback(self: Value, comptime T: type, fallback: T, path: []const []const u8) GetFallbackError!T {
-        return self.get(T, path) catch |err| switch (err) {
-            error.Missing => fallback,
-            else => |e| e,
-        };
+    pub fn get(self: Value, comptime T: type, path: []const []const u8) ToTypeError(T)!T {
+        const result = self.getValue(path);
+        return result.toType(T);
     }
 
-    pub const GetError = GetValueError || error{
-        TypeMismatch,
-    };
-    pub fn get(self: Value, comptime T: type, path: []const []const u8) GetError!T {
-        const value = try self.getValue(path);
-
-        switch (T) {
-            Object => if (value == .object) {
-                return value.object;
-            } else return error.TypeMismatch,
-            f64 => if (value == .float) {
-                return value.float;
-            } else return error.TypeMismatch,
-            bool => if (value == .boolean) {
-                return value.boolean;
-            } else return error.TypeMismatch,
-            []const u8 => if (value == .string) {
-                return value.string;
-            } else return error.TypeMismatch,
-            else => @compileError("invalid type: " ++ @typeName(T)),
-        }
-    }
-
-    pub const GetValueFallbackError = error{StackOverflow};
-    pub fn getValueFallback(self: Value, fallback: Value, path: []const []const u8) GetValueFallbackError!Value {
-        return self.getValue(path) catch |err| switch (err) {
-            error.Missing => fallback,
-            else => |e| e,
-        };
-    }
-
-    pub const GetValueError = error{ Missing, StackOverflow };
-    pub fn getValue(self: Value, path: []const []const u8) GetValueError!Value {
-        return self.getValueInner(path, 0);
-    }
-
-    fn getValueInner(self: Value, path: []const []const u8, level: usize) GetValueError!Value {
-        const recursion_limit = 100; // TODO: Make configurable?
-        if (level > recursion_limit) return error.StackOverflow;
-
+    fn getValue(self: Value, path: []const []const u8) Value {
         var cursor = self;
         for (path) |segment| {
             const object = switch (cursor) {
                 else => {
-                    return error.Missing;
+                    return .missing;
                 },
                 .object => |o| o,
             };
             cursor = for (object.items) |kv| {
                 if (std.mem.eql(u8, segment, kv.key)) break kv.value;
-            } else return error.Missing;
+            } else return .missing;
         }
 
         return cursor;
+    }
+
+    pub fn ToTypeError(T: type) type {
+        if (@typeInfo(T) == .optional) return error{ Recursive, TypeMismatch };
+        return error{ Recursive, Missing, TypeMismatch };
+    }
+
+    pub fn toType(value: Value, comptime T: type) ToTypeError(T)!T {
+        if (value == .err) {
+            if (@typeInfo(T) == .optional) switch (value.err) {
+                error.Missing => return null,
+                else => |e| return e,
+            };
+        }
+
+        switch (T) {
+            Float => if (value == .float) {
+                return value.float;
+            } else return error.TypeMismatch,
+            Boolean => if (value == .boolean) {
+                return value.boolean;
+            } else return error.TypeMismatch,
+            String => if (value == .string) {
+                return value.string;
+            } else return error.TypeMismatch,
+            Object => if (value == .object) {
+                return value.object;
+            } else return error.TypeMismatch,
+            else => switch (@typeInfo(T)) {
+                .optional => |opt| return value.toType(opt.child) catch |err| switch (err) {
+                    error.Missing => unreachable,
+                    else => |e| return e,
+                },
+                else => @compileError("invalid type: " ++ @typeName(T)),
+            },
+        }
     }
 };
 
@@ -533,7 +552,7 @@ test load {
     , "<string 3>");
 }
 
-test "Value.getValue" {
+test "Casl.resolveValuePath" {
     var arena_instance: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_instance.deinit();
     const arena = arena_instance.allocator();
@@ -566,24 +585,109 @@ test "Value.getValue" {
 
     try std.testing.expectEqualDeep(
         Value{ .float = 123 },
-        try casl.resolvePath(arena, &.{"bla"}),
+        try casl.resolveValuePath(arena, &.{"bla"}),
+    );
+    try std.testing.expectEqualDeep(
+        123,
+        try casl.resolvePath(Value.Float, arena, &.{"bla"}),
     );
 
     try std.testing.expectEqualDeep(
         Value{ .string = "center" },
-        try casl.resolvePath(arena, &.{ "style", "link", "align" }),
+        try casl.resolveValuePath(arena, &.{ "style", "link", "align" }),
+    );
+    try std.testing.expectEqualDeep(
+        "center",
+        try casl.resolvePath(Value.String, arena, &.{ "style", "link", "align" }),
     );
     try std.testing.expectEqualDeep(
         Value{ .float = 0.04 },
-        try casl.resolvePath(arena, &.{ "style", "title", "font_size" }),
+        try casl.resolveValuePath(arena, &.{ "style", "title", "font_size" }),
     );
     try std.testing.expectEqualDeep(
         Value{ .boolean = true },
-        try casl.resolvePath(arena, &.{ "style", "thumbnail", "frame" }),
+        try casl.resolveValuePath(arena, &.{ "style", "thumbnail", "frame" }),
     );
 
     try std.testing.expectEqualDeep(
         Value{ .float = 0.59 },
-        try casl.resolvePath(arena, &.{ "style", "title", "left" }),
+        try casl.resolveValuePath(arena, &.{ "style", "title", "left" }),
+    );
+}
+
+test "Value.get" {
+    var arena_instance: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_instance.deinit();
+    const arena = arena_instance.allocator();
+
+    const casl = try load(std.testing.allocator, arena,
+        \\style = {
+        \\    thumbnail = {
+        \\        frame = true,
+        \\        left = 0.59,
+        \\        width = 0.14,
+        \\        top = 0.20,
+        \\        align = "center",
+        \\        valign = "center",
+        \\    },
+        \\    title = {
+        \\        top = 0.37,
+        \\        left = style.thumbnail.left,
+        \\        font_path = "./data/fonts/iosevka-bold.ttf",
+        \\        font_size = 0.04,
+        \\        align = "center",
+        \\    },
+        \\    link = {
+        \\        top = 0.46,
+        \\        left = 0.59,
+        \\        width = 0.1,
+        \\        align = "center",
+        \\    },
+        \\},
+        \\bla = 123,
+    , "<string 1>");
+    const value = try casl.resolveValue(arena);
+
+    try std.testing.expectEqual(
+        123,
+        try value.get(Value.Float, &.{"bla"}),
+    );
+
+    try std.testing.expectEqualStrings(
+        "center",
+        try value.get(Value.String, &.{ "style", "link", "align" }),
+    );
+    try std.testing.expectEqual(
+        0.04,
+        try value.get(Value.Float, &.{ "style", "title", "font_size" }),
+    );
+    try std.testing.expectEqual(
+        true,
+        try value.get(Value.Boolean, &.{ "style", "thumbnail", "frame" }),
+    );
+
+    try std.testing.expectEqual(
+        0.59,
+        try value.get(Value.Float, &.{ "style", "title", "left" }),
+    );
+
+    try std.testing.expectEqualDeep(
+        123,
+        try value.get(?Value.Float, &.{"bla"}),
+    );
+
+    try std.testing.expectEqualDeep(
+        null,
+        try value.get(?Value.Float, &.{"blab"}),
+    );
+}
+
+test "Casl.resolve" {
+    var arena_instance: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_instance.deinit();
+    const arena = arena_instance.allocator();
+    try std.testing.expectEqual(
+        null,
+        try Casl.resolve(.{ .value = .missing }, ?f64, arena),
     );
 }
