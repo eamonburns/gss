@@ -485,12 +485,20 @@ const Parser = struct {
                 _ = try p.expectToken(file_path, .r_brace);
                 return .{ .expr = .{ .object = object } };
             },
-            .number_literal => {
-                const f = std.fmt.parseFloat(f64, p.tokenSlice(tok)) catch {
+            .number_literal, .minus => {
+                // TODO: Proper unary minus
+                const num, const sign: f64 = switch (tok.tag) {
+                    .minus => .{
+                        try p.expectToken(file_path, .number_literal), -1,
+                    },
+                    .number_literal => .{ tok, 1 },
+                    else => unreachable,
+                };
+                const f = std.fmt.parseFloat(f64, p.tokenSlice(num)) catch {
                     p.reportError(file_path, tok, "invalid number literal", .{});
                     return error.ParseFailed;
                 };
-                return .{ .value = .{ .float = f } };
+                return .{ .value = .{ .float = f * sign } };
             },
             // Annoying side effect of using the Zig parser, have to handle keywords
             // zig fmt: off
@@ -665,6 +673,14 @@ test load {
         \\    },
         \\},
     , "<string 3>");
+
+    const negative = try load(std.testing.allocator, arena.allocator(),
+        \\-1
+    , "<string 4>");
+    try std.testing.expectEqualDeep(
+        Casl{ .value = .{ .float = -1 } },
+        negative,
+    );
 }
 
 test "Casl.resolveValuePath" {
