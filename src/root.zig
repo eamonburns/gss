@@ -263,8 +263,8 @@ pub const Value = union(enum) {
         }
 
         switch (T) {
-            Float => if (value == .float) {
-                return value.float;
+            Float, f32 => if (value == .float) {
+                return @floatCast(value.float);
             } else return error.TypeMismatch,
             Boolean => if (value == .boolean) {
                 return value.boolean;
@@ -380,6 +380,18 @@ test "Value.toType" {
 
     const e: Value = .{ .string = "bla" };
     try std.testing.expectError(error.TypeMismatch, e.toType(Person.Species));
+
+    const Point = struct {
+        x: f32,
+        y: f32,
+    };
+    const point_value: Value = .{ .object = .{ .items = &.{
+        .{ .key = "x", .value = .{ .float = 10 } },
+        .{ .key = "y", .value = .{ .float = 25 } },
+    } } };
+    const point = try point_value.toType(Point);
+    try std.testing.expectEqual(10, point.x);
+    try std.testing.expectEqual(25, point.y);
 }
 
 const Parser = struct {
