@@ -4,6 +4,8 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
 const zig = std.zig;
+const Tokenizer = @import("tokenizer.zig").Tokenizer;
+const Token = @import("tokenizer.zig").Token;
 
 pub const Casl = union(enum) {
     value: Value,
@@ -396,7 +398,7 @@ test "Value.toType" {
 
 const Parser = struct {
     source: [:0]const u8,
-    tokenizer: zig.Tokenizer,
+    tokenizer: Tokenizer,
     gpa: Allocator,
     arena: Allocator,
 
@@ -409,7 +411,7 @@ const Parser = struct {
         };
     }
 
-    pub fn tokenSlice(p: *Parser, token: zig.Token) []const u8 {
+    pub fn tokenSlice(p: *Parser, token: Token) []const u8 {
         return p.source[token.loc.start..token.loc.end];
     }
 
@@ -422,7 +424,7 @@ const Parser = struct {
     /// ```
     ///
     /// (Where `^^^` points at `token`)
-    pub fn reportError(p: *Parser, file_path: []const u8, token: zig.Token, comptime format: []const u8, args: anytype) void {
+    pub fn reportError(p: *Parser, file_path: []const u8, token: Token, comptime format: []const u8, args: anytype) void {
         const loc = zig.findLineColumn(p.source, token.loc.start);
         std.debug.print("{s}:{d}:{d}: error: ", .{ file_path, loc.line, loc.column });
         std.debug.print(format ++ "\n", args);
@@ -438,7 +440,7 @@ const Parser = struct {
         ExpectFailed,
     } || Allocator.Error;
 
-    pub fn expectToken(p: *Parser, file_path: []const u8, expected: zig.Token.Tag) !zig.Token {
+    pub fn expectToken(p: *Parser, file_path: []const u8, expected: Token.Tag) !Token {
         const tok = p.tokenizer.next();
         // HACK: treat keywords as identifiers
         if (tok.tag != expected and expected != .identifier) {
