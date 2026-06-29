@@ -443,35 +443,10 @@ const Parser = struct {
     pub fn expectToken(p: *Parser, file_path: []const u8, expected: Token.Tag) !Token {
         const tok = p.tokenizer.next();
         // HACK: treat keywords as identifiers
-        if (tok.tag != expected and expected != .identifier) {
+        if (tok.tag != expected) {
             p.reportError(file_path, tok, "Expected {t}, but got {t}", .{ expected, tok.tag });
             return error.ExpectFailed;
-        } else if (tok.tag != expected) switch (tok.tag) {
-            // If we are in this switch statement, it is because tok.tag != expected, and expected == .identifier
-
-            // zig fmt: off
-            .keyword_addrspace,   .keyword_align,   .keyword_allowzero,   .keyword_and,
-            .keyword_anyframe,    .keyword_anytype, .keyword_asm,         .keyword_break,
-            .keyword_callconv,    .keyword_catch,   .keyword_comptime,    .keyword_const,
-            .keyword_continue,    .keyword_defer,   .keyword_else,        .keyword_enum,
-            .keyword_errdefer,    .keyword_error,   .keyword_export,      .keyword_extern,
-            .keyword_fn,          .keyword_for,     .keyword_if,          .keyword_inline,
-            .keyword_linksection, .keyword_noalias, .keyword_noinline,    .keyword_nosuspend,
-            .keyword_opaque,      .keyword_or,      .keyword_orelse,      .keyword_packed,
-            .keyword_pub,         .keyword_resume,  .keyword_return,      .keyword_struct,
-            .keyword_suspend,     .keyword_switch,  .keyword_test,        .keyword_threadlocal,
-            .keyword_try,         .keyword_union,   .keyword_unreachable, .keyword_var,
-            .keyword_volatile,    .keyword_while,
-            // zig fmt: on
-            => {
-                // HACK: Keywords are treated as identifiers
-                return tok;
-            },
-            else => {
-                p.reportError(file_path, tok, "Expected token {t}, but got {t}", .{ expected, tok.tag });
-                return error.ExpectFailed;
-            },
-        };
+        }
         return tok;
     }
 
@@ -503,21 +478,7 @@ const Parser = struct {
                 return .{ .value = .{ .float = f * sign } };
             },
             // Annoying side effect of using the Zig parser, have to handle keywords
-            // zig fmt: off
-            .identifier,          .keyword_addrspace,   .keyword_align,   .keyword_allowzero,
-            .keyword_and,         .keyword_anyframe,    .keyword_anytype, .keyword_asm,
-            .keyword_break,       .keyword_callconv,    .keyword_catch,   .keyword_comptime,
-            .keyword_const,       .keyword_continue,    .keyword_defer,   .keyword_else,
-            .keyword_enum,        .keyword_errdefer,    .keyword_error,   .keyword_export,
-            .keyword_extern,      .keyword_fn,          .keyword_for,     .keyword_if,
-            .keyword_inline,      .keyword_linksection, .keyword_noalias, .keyword_noinline,
-            .keyword_nosuspend,   .keyword_opaque,      .keyword_or,      .keyword_orelse,
-            .keyword_packed,      .keyword_pub,         .keyword_resume,  .keyword_return,
-            .keyword_struct,      .keyword_suspend,     .keyword_switch,  .keyword_test,
-            .keyword_threadlocal, .keyword_try,         .keyword_union,   .keyword_unreachable,
-            .keyword_var,         .keyword_volatile,    .keyword_while,
-            // zig fmt: on
-            => {
+            .identifier => {
                 if (std.mem.eql(u8, "true", p.tokenSlice(tok))) {
                     return .{ .value = .{ .boolean = true } };
                 } else if (std.mem.eql(u8, "false", p.tokenSlice(tok))) {
@@ -823,4 +784,8 @@ test "Casl.resolve" {
         null,
         try Casl.resolve(.{ .value = .missing }, ?f64, arena),
     );
+}
+
+test "tokenizer" {
+    _ = std.testing.refAllDecls(@import("tokenizer.zig"));
 }
