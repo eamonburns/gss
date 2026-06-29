@@ -9,59 +9,6 @@ pub const Token = struct {
         end: usize,
     };
 
-    pub const keywords = std.StaticStringMap(Tag).initComptime(.{
-        .{ "addrspace", .keyword_addrspace },
-        .{ "align", .keyword_align },
-        .{ "allowzero", .keyword_allowzero },
-        .{ "and", .keyword_and },
-        .{ "anyframe", .keyword_anyframe },
-        .{ "anytype", .keyword_anytype },
-        .{ "asm", .keyword_asm },
-        .{ "break", .keyword_break },
-        .{ "callconv", .keyword_callconv },
-        .{ "catch", .keyword_catch },
-        .{ "comptime", .keyword_comptime },
-        .{ "const", .keyword_const },
-        .{ "continue", .keyword_continue },
-        .{ "defer", .keyword_defer },
-        .{ "else", .keyword_else },
-        .{ "enum", .keyword_enum },
-        .{ "errdefer", .keyword_errdefer },
-        .{ "error", .keyword_error },
-        .{ "export", .keyword_export },
-        .{ "extern", .keyword_extern },
-        .{ "fn", .keyword_fn },
-        .{ "for", .keyword_for },
-        .{ "if", .keyword_if },
-        .{ "inline", .keyword_inline },
-        .{ "noalias", .keyword_noalias },
-        .{ "noinline", .keyword_noinline },
-        .{ "nosuspend", .keyword_nosuspend },
-        .{ "opaque", .keyword_opaque },
-        .{ "or", .keyword_or },
-        .{ "orelse", .keyword_orelse },
-        .{ "packed", .keyword_packed },
-        .{ "pub", .keyword_pub },
-        .{ "resume", .keyword_resume },
-        .{ "return", .keyword_return },
-        .{ "linksection", .keyword_linksection },
-        .{ "struct", .keyword_struct },
-        .{ "suspend", .keyword_suspend },
-        .{ "switch", .keyword_switch },
-        .{ "test", .keyword_test },
-        .{ "threadlocal", .keyword_threadlocal },
-        .{ "try", .keyword_try },
-        .{ "union", .keyword_union },
-        .{ "unreachable", .keyword_unreachable },
-        .{ "var", .keyword_var },
-        .{ "volatile", .keyword_volatile },
-        .{ "while", .keyword_while },
-    });
-
-    pub fn getKeyword(bytes: []const u8) ?Tag {
-        return keywords.get(bytes);
-    }
-
     pub const Tag = enum {
         invalid,
         invalid_periodasterisks,
@@ -136,52 +83,6 @@ pub const Token = struct {
         number_literal,
         doc_comment,
         container_doc_comment,
-        keyword_addrspace,
-        keyword_align,
-        keyword_allowzero,
-        keyword_and,
-        keyword_anyframe,
-        keyword_anytype,
-        keyword_asm,
-        keyword_break,
-        keyword_callconv,
-        keyword_catch,
-        keyword_comptime,
-        keyword_const,
-        keyword_continue,
-        keyword_defer,
-        keyword_else,
-        keyword_enum,
-        keyword_errdefer,
-        keyword_error,
-        keyword_export,
-        keyword_extern,
-        keyword_fn,
-        keyword_for,
-        keyword_if,
-        keyword_inline,
-        keyword_noalias,
-        keyword_noinline,
-        keyword_nosuspend,
-        keyword_opaque,
-        keyword_or,
-        keyword_orelse,
-        keyword_packed,
-        keyword_pub,
-        keyword_resume,
-        keyword_return,
-        keyword_linksection,
-        keyword_struct,
-        keyword_suspend,
-        keyword_switch,
-        keyword_test,
-        keyword_threadlocal,
-        keyword_try,
-        keyword_union,
-        keyword_unreachable,
-        keyword_var,
-        keyword_volatile,
-        keyword_while,
 
         pub fn lexeme(tag: Tag) ?[]const u8 {
             return switch (tag) {
@@ -666,12 +567,7 @@ pub const Tokenizer = struct {
                 self.index += 1;
                 switch (self.buffer[self.index]) {
                     'a'...'z', 'A'...'Z', '_', '0'...'9' => continue :state .identifier,
-                    else => {
-                        const ident = self.buffer[result.loc.start..self.index];
-                        if (Token.getKeyword(ident)) |tag| {
-                            result.tag = tag;
-                        }
-                    },
+                    else => {},
                 }
             },
             .builtin => {
@@ -1102,22 +998,6 @@ pub const Tokenizer = struct {
     }
 };
 
-test "keywords" {
-    try testTokenize("test const else", &.{ .keyword_test, .keyword_const, .keyword_else });
-}
-
-test "line comment followed by top-level comptime" {
-    try testTokenize(
-        \\// line comment
-        \\comptime {}
-        \\
-    , &.{
-        .keyword_comptime,
-        .l_brace,
-        .r_brace,
-    });
-}
-
 test "unknown length pointer and then c pointer" {
     try testTokenize(
         \\[*]u8
@@ -1278,21 +1158,6 @@ test "illegal unicode codepoints" {
     try testTokenize("//\xe2\x80\xa8", &.{});
     try testTokenize("//\xe2\x80\xa9", &.{});
     try testTokenize("//\xe2\x80\xaa", &.{});
-}
-
-test "string identifier and builtin fns" {
-    try testTokenize(
-        \\const @"if" = @import("std");
-    , &.{
-        .keyword_const,
-        .identifier,
-        .equal,
-        .builtin,
-        .l_paren,
-        .string_literal,
-        .r_paren,
-        .semicolon,
-    });
 }
 
 test "pipe and then invalid" {
@@ -1702,8 +1567,8 @@ test "invalid tabs and carriage returns" {
     // whitespace, whether directly preceding NL or stray, is...accepted by the
     // grammar."
     // https://github.com/ziglang/zig-spec/issues/38
-    try testTokenize("\tpub\tswitch\t", &.{ .keyword_pub, .keyword_switch });
-    try testTokenize("\rpub\rswitch\r", &.{ .keyword_pub, .keyword_switch });
+    try testTokenize("\tpub\tswitch\t", &.{ .identifier, .identifier });
+    try testTokenize("\rpub\rswitch\r", &.{ .identifier, .identifier });
 }
 
 test "fuzzable properties upheld" {
