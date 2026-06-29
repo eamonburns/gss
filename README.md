@@ -41,8 +41,7 @@ Valid types are:
 
 ## Known Issues
 
-- Trailing commas are _mandatory_
-    - Not sure if this is an issue or not. I may or may not remove this requirement in the future.
+- Trailing commas are mandatory at the moment
 
 ## Acknowledgments
 
