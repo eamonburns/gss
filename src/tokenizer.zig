@@ -11,78 +11,78 @@ pub const Token = struct {
 
     pub const Tag = enum {
         invalid,
-        invalid_periodasterisks,
+        // invalid_periodasterisks,
         identifier,
         string_literal,
         multiline_string_literal_line,
-        char_literal,
+        // char_literal,
         eof,
-        builtin,
+        // builtin,
         bang,
-        pipe,
-        pipe_pipe,
-        pipe_equal,
+        // pipe,
+        // pipe_pipe,
+        // pipe_equal,
         equal,
         equal_equal,
-        equal_angle_bracket_right,
+        // equal_angle_bracket_right,
         bang_equal,
         l_paren,
         r_paren,
-        semicolon,
+        // semicolon,
         percent,
-        percent_equal,
+        // percent_equal,
         l_brace,
         r_brace,
         l_bracket,
         r_bracket,
         period,
-        period_asterisk,
-        ellipsis2,
-        ellipsis3,
+        // period_asterisk,
+        // ellipsis2,
+        // ellipsis3,
         caret,
-        caret_equal,
+        // caret_equal,
         plus,
-        plus_plus,
-        plus_equal,
-        plus_percent,
-        plus_percent_equal,
-        plus_pipe,
-        plus_pipe_equal,
+        // plus_plus,
+        // plus_equal,
+        // plus_percent,
+        // plus_percent_equal,
+        // plus_pipe,
+        // plus_pipe_equal,
         minus,
-        minus_equal,
-        minus_percent,
-        minus_percent_equal,
-        minus_pipe,
-        minus_pipe_equal,
+        // minus_equal,
+        // minus_percent,
+        // minus_percent_equal,
+        // minus_pipe,
+        // minus_pipe_equal,
         asterisk,
-        asterisk_equal,
-        asterisk_asterisk,
-        asterisk_percent,
-        asterisk_percent_equal,
-        asterisk_pipe,
-        asterisk_pipe_equal,
-        arrow,
-        colon,
+        // asterisk_equal,
+        // asterisk_asterisk,
+        // asterisk_percent,
+        // asterisk_percent_equal,
+        // asterisk_pipe,
+        // asterisk_pipe_equal,
+        // arrow,
+        // colon,
         slash,
-        slash_equal,
+        // slash_equal,
         comma,
-        ampersand,
-        ampersand_equal,
-        question_mark,
+        // ampersand,
+        // ampersand_equal,
+        // question_mark,
         angle_bracket_left,
         angle_bracket_left_equal,
-        angle_bracket_angle_bracket_left,
-        angle_bracket_angle_bracket_left_equal,
-        angle_bracket_angle_bracket_left_pipe,
-        angle_bracket_angle_bracket_left_pipe_equal,
+        // angle_bracket_angle_bracket_left,
+        // angle_bracket_angle_bracket_left_equal,
+        // angle_bracket_angle_bracket_left_pipe,
+        // angle_bracket_angle_bracket_left_pipe_equal,
         angle_bracket_right,
         angle_bracket_right_equal,
-        angle_bracket_angle_bracket_right,
-        angle_bracket_angle_bracket_right_equal,
-        tilde,
+        // angle_bracket_angle_bracket_right,
+        // angle_bracket_angle_bracket_right_equal,
+        // tilde,
         number_literal,
-        doc_comment,
-        container_doc_comment,
+        // doc_comment,
+        // container_doc_comment,
 
         pub fn lexeme(tag: Tag) ?[]const u8 {
             return switch (tag) {
@@ -90,123 +90,123 @@ pub const Token = struct {
                 .identifier,
                 .string_literal,
                 .multiline_string_literal_line,
-                .char_literal,
+                // .char_literal,
                 .eof,
-                .builtin,
+                // .builtin,
                 .number_literal,
-                .doc_comment,
-                .container_doc_comment,
+                // .doc_comment,
+                // .container_doc_comment,
                 => null,
 
-                .invalid_periodasterisks => ".**",
+                // .invalid_periodasterisks => ".**",
                 .bang => "!",
-                .pipe => "|",
-                .pipe_pipe => "||",
-                .pipe_equal => "|=",
+                // .pipe => "|",
+                // .pipe_pipe => "||",
+                // .pipe_equal => "|=",
                 .equal => "=",
                 .equal_equal => "==",
-                .equal_angle_bracket_right => "=>",
+                // .equal_angle_bracket_right => "=>",
                 .bang_equal => "!=",
                 .l_paren => "(",
                 .r_paren => ")",
-                .semicolon => ";",
+                // .semicolon => ";",
                 .percent => "%",
-                .percent_equal => "%=",
+                // .percent_equal => "%=",
                 .l_brace => "{",
                 .r_brace => "}",
                 .l_bracket => "[",
                 .r_bracket => "]",
                 .period => ".",
-                .period_asterisk => ".*",
-                .ellipsis2 => "..",
-                .ellipsis3 => "...",
+                // .period_asterisk => ".*",
+                // .ellipsis2 => "..",
+                // .ellipsis3 => "...",
                 .caret => "^",
-                .caret_equal => "^=",
+                // .caret_equal => "^=",
                 .plus => "+",
-                .plus_plus => "++",
-                .plus_equal => "+=",
-                .plus_percent => "+%",
-                .plus_percent_equal => "+%=",
-                .plus_pipe => "+|",
-                .plus_pipe_equal => "+|=",
+                // .plus_plus => "++",
+                // .plus_equal => "+=",
+                // .plus_percent => "+%",
+                // .plus_percent_equal => "+%=",
+                // .plus_pipe => "+|",
+                // .plus_pipe_equal => "+|=",
                 .minus => "-",
-                .minus_equal => "-=",
-                .minus_percent => "-%",
-                .minus_percent_equal => "-%=",
-                .minus_pipe => "-|",
-                .minus_pipe_equal => "-|=",
+                // .minus_equal => "-=",
+                // .minus_percent => "-%",
+                // .minus_percent_equal => "-%=",
+                // .minus_pipe => "-|",
+                // .minus_pipe_equal => "-|=",
                 .asterisk => "*",
-                .asterisk_equal => "*=",
-                .asterisk_asterisk => "**",
-                .asterisk_percent => "*%",
-                .asterisk_percent_equal => "*%=",
-                .asterisk_pipe => "*|",
-                .asterisk_pipe_equal => "*|=",
-                .arrow => "->",
-                .colon => ":",
+                // .asterisk_equal => "*=",
+                // .asterisk_asterisk => "**",
+                // .asterisk_percent => "*%",
+                // .asterisk_percent_equal => "*%=",
+                // .asterisk_pipe => "*|",
+                // .asterisk_pipe_equal => "*|=",
+                // .arrow => "->",
+                // .colon => ":",
                 .slash => "/",
-                .slash_equal => "/=",
+                // .slash_equal => "/=",
                 .comma => ",",
-                .ampersand => "&",
-                .ampersand_equal => "&=",
-                .question_mark => "?",
+                // .ampersand => "&",
+                // .ampersand_equal => "&=",
+                // .question_mark => "?",
                 .angle_bracket_left => "<",
                 .angle_bracket_left_equal => "<=",
-                .angle_bracket_angle_bracket_left => "<<",
-                .angle_bracket_angle_bracket_left_equal => "<<=",
-                .angle_bracket_angle_bracket_left_pipe => "<<|",
-                .angle_bracket_angle_bracket_left_pipe_equal => "<<|=",
+                // .angle_bracket_angle_bracket_left => "<<",
+                // .angle_bracket_angle_bracket_left_equal => "<<=",
+                // .angle_bracket_angle_bracket_left_pipe => "<<|",
+                // .angle_bracket_angle_bracket_left_pipe_equal => "<<|=",
                 .angle_bracket_right => ">",
                 .angle_bracket_right_equal => ">=",
-                .angle_bracket_angle_bracket_right => ">>",
-                .angle_bracket_angle_bracket_right_equal => ">>=",
-                .tilde => "~",
-                .keyword_addrspace => "addrspace",
-                .keyword_align => "align",
-                .keyword_allowzero => "allowzero",
-                .keyword_and => "and",
-                .keyword_anyframe => "anyframe",
-                .keyword_anytype => "anytype",
-                .keyword_asm => "asm",
-                .keyword_break => "break",
-                .keyword_callconv => "callconv",
-                .keyword_catch => "catch",
-                .keyword_comptime => "comptime",
-                .keyword_const => "const",
-                .keyword_continue => "continue",
-                .keyword_defer => "defer",
-                .keyword_else => "else",
-                .keyword_enum => "enum",
-                .keyword_errdefer => "errdefer",
-                .keyword_error => "error",
-                .keyword_export => "export",
-                .keyword_extern => "extern",
-                .keyword_fn => "fn",
-                .keyword_for => "for",
-                .keyword_if => "if",
-                .keyword_inline => "inline",
-                .keyword_noalias => "noalias",
-                .keyword_noinline => "noinline",
-                .keyword_nosuspend => "nosuspend",
-                .keyword_opaque => "opaque",
-                .keyword_or => "or",
-                .keyword_orelse => "orelse",
-                .keyword_packed => "packed",
-                .keyword_pub => "pub",
-                .keyword_resume => "resume",
-                .keyword_return => "return",
-                .keyword_linksection => "linksection",
-                .keyword_struct => "struct",
-                .keyword_suspend => "suspend",
-                .keyword_switch => "switch",
-                .keyword_test => "test",
-                .keyword_threadlocal => "threadlocal",
-                .keyword_try => "try",
-                .keyword_union => "union",
-                .keyword_unreachable => "unreachable",
-                .keyword_var => "var",
-                .keyword_volatile => "volatile",
-                .keyword_while => "while",
+                // .angle_bracket_angle_bracket_right => ">>",
+                // .angle_bracket_angle_bracket_right_equal => ">>=",
+                // .tilde => "~",
+                // .keyword_addrspace => "addrspace",
+                // .keyword_align => "align",
+                // .keyword_allowzero => "allowzero",
+                // .keyword_and => "and",
+                // .keyword_anyframe => "anyframe",
+                // .keyword_anytype => "anytype",
+                // .keyword_asm => "asm",
+                // .keyword_break => "break",
+                // .keyword_callconv => "callconv",
+                // .keyword_catch => "catch",
+                // .keyword_comptime => "comptime",
+                // .keyword_const => "const",
+                // .keyword_continue => "continue",
+                // .keyword_defer => "defer",
+                // .keyword_else => "else",
+                // .keyword_enum => "enum",
+                // .keyword_errdefer => "errdefer",
+                // .keyword_error => "error",
+                // .keyword_export => "export",
+                // .keyword_extern => "extern",
+                // .keyword_fn => "fn",
+                // .keyword_for => "for",
+                // .keyword_if => "if",
+                // .keyword_inline => "inline",
+                // .keyword_noalias => "noalias",
+                // .keyword_noinline => "noinline",
+                // .keyword_nosuspend => "nosuspend",
+                // .keyword_opaque => "opaque",
+                // .keyword_or => "or",
+                // .keyword_orelse => "orelse",
+                // .keyword_packed => "packed",
+                // .keyword_pub => "pub",
+                // .keyword_resume => "resume",
+                // .keyword_return => "return",
+                // .keyword_linksection => "linksection",
+                // .keyword_struct => "struct",
+                // .keyword_suspend => "suspend",
+                // .keyword_switch => "switch",
+                // .keyword_test => "test",
+                // .keyword_threadlocal => "threadlocal",
+                // .keyword_try => "try",
+                // .keyword_union => "union",
+                // .keyword_unreachable => "unreachable",
+                // .keyword_var => "var",
+                // .keyword_volatile => "volatile",
+                // .keyword_while => "while",
             };
         }
 
@@ -216,11 +216,11 @@ pub const Token = struct {
                 .identifier => "an identifier",
                 .string_literal => "a string literal",
                 .multiline_string_literal_line => "a multiline string literal",
-                .char_literal => "a character literal",
+                // .char_literal => "a character literal",
                 .eof => "EOF",
-                .builtin => "a builtin function",
+                // .builtin => "a builtin function",
                 .number_literal => "a number literal",
-                .doc_comment, .container_doc_comment => "a document comment",
+                // .doc_comment, .container_doc_comment => "a document comment",
                 else => unreachable,
             };
         }
@@ -248,47 +248,47 @@ pub const Tokenizer = struct {
         start,
         expect_newline,
         identifier,
-        builtin,
+        // builtin,
         string_literal,
         string_literal_backslash,
         multiline_string_literal_line,
-        char_literal,
-        char_literal_backslash,
+        // char_literal,
+        // char_literal_backslash,
         backslash,
         equal,
         bang,
-        pipe,
-        minus,
-        minus_percent,
-        minus_pipe,
-        asterisk,
-        asterisk_percent,
-        asterisk_pipe,
+        // pipe,
+        // minus,
+        // minus_percent,
+        // minus_pipe,
+        // asterisk,
+        // asterisk_percent,
+        // asterisk_pipe,
         slash,
-        line_comment_start,
+        // line_comment_start,
         line_comment,
-        doc_comment_start,
-        doc_comment,
+        // doc_comment_start,
+        // doc_comment,
         int,
         int_exponent,
         int_period,
         float,
         float_exponent,
-        ampersand,
-        caret,
-        percent,
-        plus,
-        plus_percent,
-        plus_pipe,
+        // ampersand,
+        // caret,
+        // percent,
+        // plus,
+        // plus_percent,
+        // plus_pipe,
         angle_bracket_left,
-        angle_bracket_angle_bracket_left,
-        angle_bracket_angle_bracket_left_pipe,
+        // angle_bracket_angle_bracket_left,
+        // angle_bracket_angle_bracket_left_pipe,
         angle_bracket_right,
-        angle_bracket_angle_bracket_right,
-        period,
-        period_2,
-        period_asterisk,
-        saw_at_sign,
+        // angle_bracket_angle_bracket_right,
+        // period,
+        // period_2,
+        // period_asterisk,
+        // saw_at_sign,
         invalid,
     };
 
@@ -326,18 +326,24 @@ pub const Tokenizer = struct {
                     result.tag = .string_literal;
                     continue :state .string_literal;
                 },
-                '\'' => {
-                    result.tag = .char_literal;
-                    continue :state .char_literal;
-                },
+                // TODO:
+                // '`' => {
+                //     result.tag = .identifier;
+                //     continue :state .string_literal;
+                // },
+
+                // '\'' => {
+                //     result.tag = .char_literal;
+                //     continue :state .char_literal;
+                // },
                 'a'...'z', 'A'...'Z', '_' => {
                     result.tag = .identifier;
                     continue :state .identifier;
                 },
-                '@' => continue :state .saw_at_sign,
+                // '@' => continue :state .saw_at_sign,
                 '=' => continue :state .equal,
                 '!' => continue :state .bang,
-                '|' => continue :state .pipe,
+                // '|' => continue :state .pipe,
                 '(' => {
                     result.tag = .l_paren;
                     self.index += 1;
@@ -354,28 +360,40 @@ pub const Tokenizer = struct {
                     result.tag = .r_bracket;
                     self.index += 1;
                 },
-                ';' => {
-                    result.tag = .semicolon;
-                    self.index += 1;
-                },
+                // ';' => {
+                //     result.tag = .semicolon;
+                //     self.index += 1;
+                // },
                 ',' => {
                     result.tag = .comma;
                     self.index += 1;
                 },
-                '?' => {
-                    result.tag = .question_mark;
+                // '?' => {
+                //     result.tag = .question_mark;
+                //     self.index += 1;
+                // },
+                // ':' => {
+                //     result.tag = .colon;
+                //     self.index += 1;
+                // },
+                '%' => {
+                    result.tag = .percent;
                     self.index += 1;
                 },
-                ':' => {
-                    result.tag = .colon;
+                '*' => {
+                    result.tag = .asterisk;
                     self.index += 1;
                 },
-                '%' => continue :state .percent,
-                '*' => continue :state .asterisk,
-                '+' => continue :state .plus,
+                '+' => {
+                    result.tag = .plus;
+                    self.index += 1;
+                },
                 '<' => continue :state .angle_bracket_left,
                 '>' => continue :state .angle_bracket_right,
-                '^' => continue :state .caret,
+                '^' => {
+                    result.tag = .caret;
+                    self.index += 1;
+                },
                 '\\' => {
                     result.tag = .multiline_string_literal_line;
                     continue :state .backslash;
@@ -388,14 +406,20 @@ pub const Tokenizer = struct {
                     result.tag = .r_brace;
                     self.index += 1;
                 },
-                '~' => {
-                    result.tag = .tilde;
+                // '~' => {
+                //     result.tag = .tilde;
+                //     self.index += 1;
+                // },
+                '.' => {
+                    result.tag = .period;
                     self.index += 1;
                 },
-                '.' => continue :state .period,
-                '-' => continue :state .minus,
+                '-' => {
+                    result.tag = .minus;
+                    self.index += 1;
+                },
                 '/' => continue :state .slash,
-                '&' => continue :state .ampersand,
+                // '&' => continue :state .ampersand,
                 '0'...'9' => {
                     result.tag = .number_literal;
                     self.index += 1;
@@ -436,132 +460,132 @@ pub const Tokenizer = struct {
                 }
             },
 
-            .saw_at_sign => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    0, '\n' => result.tag = .invalid,
-                    '"' => {
-                        result.tag = .identifier;
-                        continue :state .string_literal;
-                    },
-                    'a'...'z', 'A'...'Z', '_' => {
-                        result.tag = .builtin;
-                        continue :state .builtin;
-                    },
-                    else => continue :state .invalid,
-                }
-            },
+            // .saw_at_sign => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         0, '\n' => result.tag = .invalid,
+            //         '"' => {
+            //             result.tag = .identifier;
+            //             continue :state .string_literal;
+            //         },
+            //         'a'...'z', 'A'...'Z', '_' => {
+            //             result.tag = .builtin;
+            //             continue :state .builtin;
+            //         },
+            //         else => continue :state .invalid,
+            //     }
+            // },
 
-            .ampersand => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .ampersand_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .ampersand,
-                }
-            },
+            // .ampersand => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .ampersand_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .ampersand,
+            //     }
+            // },
 
-            .asterisk => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .asterisk_equal;
-                        self.index += 1;
-                    },
-                    '*' => {
-                        result.tag = .asterisk_asterisk;
-                        self.index += 1;
-                    },
-                    '%' => continue :state .asterisk_percent,
-                    '|' => continue :state .asterisk_pipe,
-                    else => result.tag = .asterisk,
-                }
-            },
+            // .asterisk => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .asterisk_equal;
+            //             self.index += 1;
+            //         },
+            //         '*' => {
+            //             result.tag = .asterisk_asterisk;
+            //             self.index += 1;
+            //         },
+            //         '%' => continue :state .asterisk_percent,
+            //         '|' => continue :state .asterisk_pipe,
+            //         else => result.tag = .asterisk,
+            //     }
+            // },
 
-            .asterisk_percent => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .asterisk_percent_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .asterisk_percent,
-                }
-            },
+            // .asterisk_percent => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .asterisk_percent_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .asterisk_percent,
+            //     }
+            // },
 
-            .asterisk_pipe => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .asterisk_pipe_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .asterisk_pipe,
-                }
-            },
+            // .asterisk_pipe => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .asterisk_pipe_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .asterisk_pipe,
+            //     }
+            // },
 
-            .percent => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .percent_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .percent,
-                }
-            },
+            // .percent => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .percent_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .percent,
+            //     }
+            // },
 
-            .plus => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .plus_equal;
-                        self.index += 1;
-                    },
-                    '+' => {
-                        result.tag = .plus_plus;
-                        self.index += 1;
-                    },
-                    '%' => continue :state .plus_percent,
-                    '|' => continue :state .plus_pipe,
-                    else => result.tag = .plus,
-                }
-            },
+            // .plus => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .plus_equal;
+            //             self.index += 1;
+            //         },
+            //         '+' => {
+            //             result.tag = .plus_plus;
+            //             self.index += 1;
+            //         },
+            //         '%' => continue :state .plus_percent,
+            //         '|' => continue :state .plus_pipe,
+            //         else => result.tag = .plus,
+            //     }
+            // },
 
-            .plus_percent => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .plus_percent_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .plus_percent,
-                }
-            },
+            // .plus_percent => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .plus_percent_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .plus_percent,
+            //     }
+            // },
 
-            .plus_pipe => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .plus_pipe_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .plus_pipe,
-                }
-            },
+            // .plus_pipe => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .plus_pipe_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .plus_pipe,
+            //     }
+            // },
 
-            .caret => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .caret_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .caret,
-                }
-            },
+            // .caret => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .caret_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .caret,
+            //     }
+            // },
 
             .identifier => {
                 self.index += 1;
@@ -570,13 +594,13 @@ pub const Tokenizer = struct {
                     else => {},
                 }
             },
-            .builtin => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    'a'...'z', 'A'...'Z', '_', '0'...'9' => continue :state .builtin,
-                    else => {},
-                }
-            },
+            // .builtin => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         'a'...'z', 'A'...'Z', '_', '0'...'9' => continue :state .builtin,
+            //         else => {},
+            //     }
+            // },
             .backslash => {
                 self.index += 1;
                 switch (self.buffer[self.index]) {
@@ -617,43 +641,43 @@ pub const Tokenizer = struct {
                 }
             },
 
-            .char_literal => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    0 => {
-                        if (self.index != self.buffer.len) {
-                            continue :state .invalid;
-                        } else {
-                            result.tag = .invalid;
-                        }
-                    },
-                    '\n' => result.tag = .invalid,
-                    '\\' => continue :state .char_literal_backslash,
-                    '\'' => self.index += 1,
-                    0x01...0x09, 0x0b...0x1f, 0x7f => {
-                        continue :state .invalid;
-                    },
-                    else => continue :state .char_literal,
-                }
-            },
+            // .char_literal => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         0 => {
+            //             if (self.index != self.buffer.len) {
+            //                 continue :state .invalid;
+            //             } else {
+            //                 result.tag = .invalid;
+            //             }
+            //         },
+            //         '\n' => result.tag = .invalid,
+            //         '\\' => continue :state .char_literal_backslash,
+            //         '\'' => self.index += 1,
+            //         0x01...0x09, 0x0b...0x1f, 0x7f => {
+            //             continue :state .invalid;
+            //         },
+            //         else => continue :state .char_literal,
+            //     }
+            // },
 
-            .char_literal_backslash => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    0 => {
-                        if (self.index != self.buffer.len) {
-                            continue :state .invalid;
-                        } else {
-                            result.tag = .invalid;
-                        }
-                    },
-                    '\n' => result.tag = .invalid,
-                    0x01...0x09, 0x0b...0x1f, 0x7f => {
-                        continue :state .invalid;
-                    },
-                    else => continue :state .char_literal,
-                }
-            },
+            // .char_literal_backslash => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         0 => {
+            //             if (self.index != self.buffer.len) {
+            //                 continue :state .invalid;
+            //             } else {
+            //                 result.tag = .invalid;
+            //             }
+            //         },
+            //         '\n' => result.tag = .invalid,
+            //         0x01...0x09, 0x0b...0x1f, 0x7f => {
+            //             continue :state .invalid;
+            //         },
+            //         else => continue :state .char_literal,
+            //     }
+            // },
 
             .multiline_string_literal_line => {
                 self.index += 1;
@@ -681,20 +705,20 @@ pub const Tokenizer = struct {
                 }
             },
 
-            .pipe => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .pipe_equal;
-                        self.index += 1;
-                    },
-                    '|' => {
-                        result.tag = .pipe_pipe;
-                        self.index += 1;
-                    },
-                    else => result.tag = .pipe,
-                }
-            },
+            // .pipe => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .pipe_equal;
+            //             self.index += 1;
+            //         },
+            //         '|' => {
+            //             result.tag = .pipe_pipe;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .pipe,
+            //     }
+            // },
 
             .equal => {
                 self.index += 1;
@@ -703,56 +727,56 @@ pub const Tokenizer = struct {
                         result.tag = .equal_equal;
                         self.index += 1;
                     },
-                    '>' => {
-                        result.tag = .equal_angle_bracket_right;
-                        self.index += 1;
-                    },
+                    // '>' => {
+                    //     result.tag = .equal_angle_bracket_right;
+                    //     self.index += 1;
+                    // },
                     else => result.tag = .equal,
                 }
             },
 
-            .minus => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '>' => {
-                        result.tag = .arrow;
-                        self.index += 1;
-                    },
-                    '=' => {
-                        result.tag = .minus_equal;
-                        self.index += 1;
-                    },
-                    '%' => continue :state .minus_percent,
-                    '|' => continue :state .minus_pipe,
-                    else => result.tag = .minus,
-                }
-            },
+            // .minus => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '>' => {
+            //             result.tag = .arrow;
+            //             self.index += 1;
+            //         },
+            //         '=' => {
+            //             result.tag = .minus_equal;
+            //             self.index += 1;
+            //         },
+            //         '%' => continue :state .minus_percent,
+            //         '|' => continue :state .minus_pipe,
+            //         else => result.tag = .minus,
+            //     }
+            // },
 
-            .minus_percent => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .minus_percent_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .minus_percent,
-                }
-            },
-            .minus_pipe => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .minus_pipe_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .minus_pipe,
-                }
-            },
+            // .minus_percent => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .minus_percent_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .minus_percent,
+            //     }
+            // },
+            // .minus_pipe => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .minus_pipe_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .minus_pipe,
+            //     }
+            // },
 
             .angle_bracket_left => {
                 self.index += 1;
                 switch (self.buffer[self.index]) {
-                    '<' => continue :state .angle_bracket_angle_bracket_left,
+                    // '<' => continue :state .angle_bracket_angle_bracket_left,
                     '=' => {
                         result.tag = .angle_bracket_left_equal;
                         self.index += 1;
@@ -761,33 +785,33 @@ pub const Tokenizer = struct {
                 }
             },
 
-            .angle_bracket_angle_bracket_left => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .angle_bracket_angle_bracket_left_equal;
-                        self.index += 1;
-                    },
-                    '|' => continue :state .angle_bracket_angle_bracket_left_pipe,
-                    else => result.tag = .angle_bracket_angle_bracket_left,
-                }
-            },
+            // .angle_bracket_angle_bracket_left => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .angle_bracket_angle_bracket_left_equal;
+            //             self.index += 1;
+            //         },
+            //         '|' => continue :state .angle_bracket_angle_bracket_left_pipe,
+            //         else => result.tag = .angle_bracket_angle_bracket_left,
+            //     }
+            // },
 
-            .angle_bracket_angle_bracket_left_pipe => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .angle_bracket_angle_bracket_left_pipe_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .angle_bracket_angle_bracket_left_pipe,
-                }
-            },
+            // .angle_bracket_angle_bracket_left_pipe => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .angle_bracket_angle_bracket_left_pipe_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .angle_bracket_angle_bracket_left_pipe,
+            //     }
+            // },
 
             .angle_bracket_right => {
                 self.index += 1;
                 switch (self.buffer[self.index]) {
-                    '>' => continue :state .angle_bracket_angle_bracket_right,
+                    // '>' => continue :state .angle_bracket_angle_bracket_right,
                     '=' => {
                         result.tag = .angle_bracket_right_equal;
                         self.index += 1;
@@ -796,108 +820,104 @@ pub const Tokenizer = struct {
                 }
             },
 
-            .angle_bracket_angle_bracket_right => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '=' => {
-                        result.tag = .angle_bracket_angle_bracket_right_equal;
-                        self.index += 1;
-                    },
-                    else => result.tag = .angle_bracket_angle_bracket_right,
-                }
-            },
+            // .angle_bracket_angle_bracket_right => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '=' => {
+            //             result.tag = .angle_bracket_angle_bracket_right_equal;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .angle_bracket_angle_bracket_right,
+            //     }
+            // },
 
-            .period => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '.' => continue :state .period_2,
-                    '*' => continue :state .period_asterisk,
-                    else => result.tag = .period,
-                }
-            },
+            // .period => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '.' => continue :state .period_2,
+            //         '*' => continue :state .period_asterisk,
+            //         else => result.tag = .period,
+            //     }
+            // },
 
-            .period_2 => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '.' => {
-                        result.tag = .ellipsis3;
-                        self.index += 1;
-                    },
-                    else => result.tag = .ellipsis2,
-                }
-            },
+            // .period_2 => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '.' => {
+            //             result.tag = .ellipsis3;
+            //             self.index += 1;
+            //         },
+            //         else => result.tag = .ellipsis2,
+            //     }
+            // },
 
-            .period_asterisk => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    '*' => result.tag = .invalid_periodasterisks,
-                    else => result.tag = .period_asterisk,
-                }
-            },
+            // .period_asterisk => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         '*' => result.tag = .invalid_periodasterisks,
+            //         else => result.tag = .period_asterisk,
+            //     }
+            // },
 
             .slash => {
                 self.index += 1;
                 switch (self.buffer[self.index]) {
-                    '/' => continue :state .line_comment_start,
-                    '=' => {
-                        result.tag = .slash_equal;
-                        self.index += 1;
-                    },
+                    '/' => continue :state .line_comment,
                     else => result.tag = .slash,
                 }
             },
-            .line_comment_start => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    0 => {
-                        if (self.index != self.buffer.len) {
-                            continue :state .invalid;
-                        } else return .{
-                            .tag = .eof,
-                            .loc = .{
-                                .start = self.index,
-                                .end = self.index,
-                            },
-                        };
-                    },
-                    '!' => {
-                        result.tag = .container_doc_comment;
-                        continue :state .doc_comment;
-                    },
-                    '\n' => {
-                        self.index += 1;
-                        result.loc.start = self.index;
-                        continue :state .start;
-                    },
-                    '/' => continue :state .doc_comment_start,
-                    '\r' => continue :state .expect_newline,
-                    0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
-                        continue :state .invalid;
-                    },
-                    else => continue :state .line_comment,
-                }
-            },
-            .doc_comment_start => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    0, '\n' => result.tag = .doc_comment,
-                    '\r' => {
-                        if (self.buffer[self.index + 1] == '\n') {
-                            result.tag = .doc_comment;
-                        } else {
-                            continue :state .invalid;
-                        }
-                    },
-                    '/' => continue :state .line_comment,
-                    0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
-                        continue :state .invalid;
-                    },
-                    else => {
-                        result.tag = .doc_comment;
-                        continue :state .doc_comment;
-                    },
-                }
-            },
+            // .line_comment_start => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         0 => {
+            //             if (self.index != self.buffer.len) {
+            //                 continue :state .invalid;
+            //             } else return .{
+            //                 .tag = .eof,
+            //                 .loc = .{
+            //                     .start = self.index,
+            //                     .end = self.index,
+            //                 },
+            //             };
+            //         },
+            //         '!' => {
+            //             result.tag = .container_doc_comment;
+            //             continue :state .doc_comment;
+            //         },
+            //         '\n' => {
+            //             self.index += 1;
+            //             result.loc.start = self.index;
+            //             continue :state .start;
+            //         },
+            //         '/' => continue :state .doc_comment_start,
+            //         '\r' => continue :state .expect_newline,
+            //         0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
+            //             continue :state .invalid;
+            //         },
+            //         else => continue :state .line_comment,
+            //     }
+            // },
+            // .doc_comment_start => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         0, '\n' => result.tag = .doc_comment,
+            //         '\r' => {
+            //             if (self.buffer[self.index + 1] == '\n') {
+            //                 result.tag = .doc_comment;
+            //             } else {
+            //                 continue :state .invalid;
+            //             }
+            //         },
+            //         '/' => continue :state .line_comment,
+            //         0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
+            //             continue :state .invalid;
+            //         },
+            //         else => {
+            //             result.tag = .doc_comment;
+            //             continue :state .doc_comment;
+            //         },
+            //     }
+            // },
             .line_comment => {
                 self.index += 1;
                 switch (self.buffer[self.index]) {
@@ -924,19 +944,19 @@ pub const Tokenizer = struct {
                     else => continue :state .line_comment,
                 }
             },
-            .doc_comment => {
-                self.index += 1;
-                switch (self.buffer[self.index]) {
-                    0, '\n' => {},
-                    '\r' => if (self.buffer[self.index + 1] != '\n') {
-                        continue :state .invalid;
-                    },
-                    0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
-                        continue :state .invalid;
-                    },
-                    else => continue :state .doc_comment,
-                }
-            },
+            // .doc_comment => {
+            //     self.index += 1;
+            //     switch (self.buffer[self.index]) {
+            //         0, '\n' => {},
+            //         '\r' => if (self.buffer[self.index + 1] != '\n') {
+            //             continue :state .invalid;
+            //         },
+            //         0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
+            //             continue :state .invalid;
+            //         },
+            //         else => continue :state .doc_comment,
+            //     }
+            // },
             .int => switch (self.buffer[self.index]) {
                 '.' => continue :state .int_period,
                 '_', 'a'...'d', 'f'...'o', 'q'...'z', 'A'...'D', 'F'...'O', 'Q'...'Z', '0'...'9' => {
@@ -1015,14 +1035,14 @@ test "unknown length pointer and then c pointer" {
     });
 }
 
-test "code point literal with hex escape" {
-    try testTokenize(
-        \\'\x1b'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\x1'
-    , &.{.char_literal});
-}
+// test "code point literal with hex escape" {
+//     try testTokenize(
+//         \\'\x1b'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\x1'
+//     , &.{.char_literal});
+// }
 
 test "newline in char literal" {
     try testTokenize(
@@ -1038,90 +1058,90 @@ test "newline in string literal" {
     , &.{ .invalid, .invalid });
 }
 
-test "code point literal with unicode escapes" {
-    // Valid unicode escapes
-    try testTokenize(
-        \\'\u{3}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{01}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{2a}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{3f9}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{6E09aBc1523}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\"\u{440}"
-    , &.{.string_literal});
+// test "code point literal with unicode escapes" {
+//     // Valid unicode escapes
+//     try testTokenize(
+//         \\'\u{3}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{01}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{2a}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{3f9}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{6E09aBc1523}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\"\u{440}"
+//     , &.{.string_literal});
+//
+//     // Invalid unicode escapes
+//     try testTokenize(
+//         \\'\u'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{{'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{s}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{2z}'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\u{4a'
+//     , &.{.char_literal});
+//
+//     // Test old-style unicode literals
+//     try testTokenize(
+//         \\'\u0333'
+//     , &.{.char_literal});
+//     try testTokenize(
+//         \\'\U0333'
+//     , &.{.char_literal});
+// }
 
-    // Invalid unicode escapes
-    try testTokenize(
-        \\'\u'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{{'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{s}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{2z}'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\u{4a'
-    , &.{.char_literal});
-
-    // Test old-style unicode literals
-    try testTokenize(
-        \\'\u0333'
-    , &.{.char_literal});
-    try testTokenize(
-        \\'\U0333'
-    , &.{.char_literal});
-}
-
-test "code point literal with unicode code point" {
-    try testTokenize(
-        \\'💩'
-    , &.{.char_literal});
-}
+// test "code point literal with unicode code point" {
+//     try testTokenize(
+//         \\'💩'
+//     , &.{.char_literal});
+// }
 
 test "float literal e exponent" {
-    try testTokenize("a = 4.94065645841246544177e-324;\n", &.{
+    try testTokenize("a = 4.94065645841246544177e-324,\n", &.{
         .identifier,
         .equal,
         .number_literal,
-        .semicolon,
+        .comma,
     });
 }
 
 test "float literal p exponent" {
-    try testTokenize("a = 0x1.a827999fcef32p+1022;\n", &.{
+    try testTokenize("a = 0x1.a827999fcef32p+1022,\n", &.{
         .identifier,
         .equal,
         .number_literal,
-        .semicolon,
+        .comma,
     });
 }
 
-test "chars" {
-    try testTokenize("'c'", &.{.char_literal});
-}
+// test "chars" {
+//     try testTokenize("'c'", &.{.char_literal});
+// }
 
 test "invalid token characters" {
     try testTokenize("#", &.{.invalid});
     try testTokenize("`", &.{.invalid});
     try testTokenize("'c", &.{.invalid});
     try testTokenize("'", &.{.invalid});
-    try testTokenize("''", &.{.char_literal});
+    // try testTokenize("''", &.{.char_literal});
     try testTokenize("'\n'", &.{ .invalid, .invalid });
 }
 
@@ -1160,22 +1180,22 @@ test "illegal unicode codepoints" {
     try testTokenize("//\xe2\x80\xaa", &.{});
 }
 
-test "pipe and then invalid" {
-    try testTokenize("||=", &.{
-        .pipe_pipe,
-        .equal,
-    });
-}
+// test "pipe and then invalid" {
+//     try testTokenize("||=", &.{
+//         .pipe_pipe,
+//         .equal,
+//     });
+// }
 
 test "line comment and doc comment" {
     try testTokenize("//", &.{});
     try testTokenize("// a / b", &.{});
     try testTokenize("// /", &.{});
-    try testTokenize("/// a", &.{.doc_comment});
-    try testTokenize("///", &.{.doc_comment});
+    try testTokenize("/// a", &.{});
+    try testTokenize("///", &.{});
     try testTokenize("////", &.{});
-    try testTokenize("//!", &.{.container_doc_comment});
-    try testTokenize("//!!", &.{.container_doc_comment});
+    try testTokenize("//!", &.{});
+    try testTokenize("//!!", &.{});
 }
 
 test "line comment followed by identifier" {
@@ -1192,54 +1212,54 @@ test "line comment followed by identifier" {
 }
 
 test "UTF-8 BOM is recognized and skipped" {
-    try testTokenize("\xEF\xBB\xBFa;\n", &.{
+    try testTokenize("\xEF\xBB\xBFa,\n", &.{
         .identifier,
-        .semicolon,
+        .comma,
     });
 }
 
-test "correctly parse pointer assignment" {
-    try testTokenize("b.*=3;\n", &.{
-        .identifier,
-        .period_asterisk,
-        .equal,
-        .number_literal,
-        .semicolon,
-    });
-}
+// test "correctly parse pointer assignment" {
+//     try testTokenize("b.*=3;\n", &.{
+//         .identifier,
+//         .period_asterisk,
+//         .equal,
+//         .number_literal,
+//         .semicolon,
+//     });
+// }
 
-test "correctly parse pointer dereference followed by asterisk" {
-    try testTokenize("\"b\".* ** 10", &.{
-        .string_literal,
-        .period_asterisk,
-        .asterisk_asterisk,
-        .number_literal,
-    });
+// test "correctly parse pointer dereference followed by asterisk" {
+//     try testTokenize("\"b\".* ** 10", &.{
+//         .string_literal,
+//         .period_asterisk,
+//         .asterisk_asterisk,
+//         .number_literal,
+//     });
+//
+//     try testTokenize("(\"b\".*)** 10", &.{
+//         .l_paren,
+//         .string_literal,
+//         .period_asterisk,
+//         .r_paren,
+//         .asterisk_asterisk,
+//         .number_literal,
+//     });
+//
+//     try testTokenize("\"b\".*** 10", &.{
+//         .string_literal,
+//         .invalid_periodasterisks,
+//         .asterisk_asterisk,
+//         .number_literal,
+//     });
+// }
 
-    try testTokenize("(\"b\".*)** 10", &.{
-        .l_paren,
-        .string_literal,
-        .period_asterisk,
-        .r_paren,
-        .asterisk_asterisk,
-        .number_literal,
-    });
-
-    try testTokenize("\"b\".*** 10", &.{
-        .string_literal,
-        .invalid_periodasterisks,
-        .asterisk_asterisk,
-        .number_literal,
-    });
-}
-
-test "range literals" {
-    try testTokenize("0...9", &.{ .number_literal, .ellipsis3, .number_literal });
-    try testTokenize("'0'...'9'", &.{ .char_literal, .ellipsis3, .char_literal });
-    try testTokenize("0x00...0x09", &.{ .number_literal, .ellipsis3, .number_literal });
-    try testTokenize("0b00...0b11", &.{ .number_literal, .ellipsis3, .number_literal });
-    try testTokenize("0o00...0o11", &.{ .number_literal, .ellipsis3, .number_literal });
-}
+// test "range literals" {
+//     try testTokenize("0...9", &.{ .number_literal, .ellipsis3, .number_literal });
+//     try testTokenize("'0'...'9'", &.{ .char_literal, .ellipsis3, .char_literal });
+//     try testTokenize("0x00...0x09", &.{ .number_literal, .ellipsis3, .number_literal });
+//     try testTokenize("0b00...0b11", &.{ .number_literal, .ellipsis3, .number_literal });
+//     try testTokenize("0o00...0o11", &.{ .number_literal, .ellipsis3, .number_literal });
+// }
 
 test "number literals decimal" {
     try testTokenize("0", &.{.number_literal});
@@ -1252,7 +1272,7 @@ test "number literals decimal" {
     try testTokenize("7", &.{.number_literal});
     try testTokenize("8", &.{.number_literal});
     try testTokenize("9", &.{.number_literal});
-    try testTokenize("1..", &.{ .number_literal, .ellipsis2 });
+    // try testTokenize("1..", &.{ .number_literal, .ellipsis2 });
     try testTokenize("0a", &.{.number_literal});
     try testTokenize("9b", &.{.number_literal});
     try testTokenize("1z", &.{.number_literal});
@@ -1475,7 +1495,7 @@ test "number literals hexadecimal" {
 }
 
 test "multi line string literal with only 1 backslash" {
-    try testTokenize("x \\\n;", &.{ .identifier, .invalid, .semicolon });
+    try testTokenize("x \\\n,", &.{ .identifier, .invalid, .comma });
 }
 
 test "invalid builtin identifiers" {
@@ -1485,27 +1505,26 @@ test "invalid builtin identifiers" {
 
 test "invalid token with unfinished escape right before eof" {
     try testTokenize("\"\\", &.{.invalid});
-    try testTokenize("'\\", &.{.invalid});
-    try testTokenize("'\\u", &.{.invalid});
+    try testTokenize("\"\\u", &.{.invalid});
 }
 
-test "saturating operators" {
-    try testTokenize("<<", &.{.angle_bracket_angle_bracket_left});
-    try testTokenize("<<|", &.{.angle_bracket_angle_bracket_left_pipe});
-    try testTokenize("<<|=", &.{.angle_bracket_angle_bracket_left_pipe_equal});
-
-    try testTokenize("*", &.{.asterisk});
-    try testTokenize("*|", &.{.asterisk_pipe});
-    try testTokenize("*|=", &.{.asterisk_pipe_equal});
-
-    try testTokenize("+", &.{.plus});
-    try testTokenize("+|", &.{.plus_pipe});
-    try testTokenize("+|=", &.{.plus_pipe_equal});
-
-    try testTokenize("-", &.{.minus});
-    try testTokenize("-|", &.{.minus_pipe});
-    try testTokenize("-|=", &.{.minus_pipe_equal});
-}
+// test "saturating operators" {
+//     try testTokenize("<<", &.{.angle_bracket_angle_bracket_left});
+//     try testTokenize("<<|", &.{.angle_bracket_angle_bracket_left_pipe});
+//     try testTokenize("<<|=", &.{.angle_bracket_angle_bracket_left_pipe_equal});
+//
+//     try testTokenize("*", &.{.asterisk});
+//     try testTokenize("*|", &.{.asterisk_pipe});
+//     try testTokenize("*|=", &.{.asterisk_pipe_equal});
+//
+//     try testTokenize("+", &.{.plus});
+//     try testTokenize("+|", &.{.plus_pipe});
+//     try testTokenize("+|=", &.{.plus_pipe_equal});
+//
+//     try testTokenize("-", &.{.minus});
+//     try testTokenize("-|", &.{.minus_pipe});
+//     try testTokenize("-|=", &.{.minus_pipe_equal});
+// }
 
 test "null byte before eof" {
     try testTokenize("123 \x00 456", &.{ .number_literal, .invalid });
@@ -1513,8 +1532,8 @@ test "null byte before eof" {
     try testTokenize("\\\\\x00", &.{.invalid});
     try testTokenize("\x00", &.{.invalid});
     try testTokenize("// NUL\x00\n", &.{.invalid});
-    try testTokenize("///\x00\n", &.{ .doc_comment, .invalid });
-    try testTokenize("/// NUL\x00\n", &.{ .doc_comment, .invalid });
+    try testTokenize("///\x00\n", &.{.invalid});
+    try testTokenize("/// NUL\x00\n", &.{.invalid});
 }
 
 test "invalid tabs and carriage returns" {
@@ -1543,14 +1562,14 @@ test "invalid tabs and carriage returns" {
     try testTokenize("/// \r ", &.{.invalid});
     try testTokenize("//\r\n", &.{});
     try testTokenize("// \r\n", &.{});
-    try testTokenize("///\r\n", &.{.doc_comment});
-    try testTokenize("/// \r\n", &.{.doc_comment});
+    try testTokenize("///\r\n", &.{});
+    try testTokenize("/// \r\n", &.{});
     try testTokenize("//!\r", &.{.invalid});
     try testTokenize("//! \r", &.{.invalid});
     try testTokenize("//!\r ", &.{.invalid});
     try testTokenize("//! \r ", &.{.invalid});
-    try testTokenize("//!\r\n", &.{.container_doc_comment});
-    try testTokenize("//! \r\n", &.{.container_doc_comment});
+    try testTokenize("//!\r\n", &.{});
+    try testTokenize("//! \r\n", &.{});
 
     // The control characters TAB and CR are rejected by the grammar inside multi-line string literals,
     // except if CR is directly before NL.
@@ -1641,4 +1660,8 @@ fn testPropertiesUpheld(_: void, smith: *std.testing.Smith) !void {
             return error.TestUnexpectedResult;
         }
     }
+}
+
+test {
+    // _ = Token.Tag.eof.lexeme();
 }

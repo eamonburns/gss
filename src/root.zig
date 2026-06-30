@@ -442,9 +442,8 @@ const Parser = struct {
 
     pub fn expectToken(p: *Parser, file_path: []const u8, expected: Token.Tag) !Token {
         const tok = p.tokenizer.next();
-        // HACK: treat keywords as identifiers
         if (tok.tag != expected) {
-            p.reportError(file_path, tok, "Expected {t}, but got {t}", .{ expected, tok.tag });
+            p.reportError(file_path, tok, "expected {t}, but got {t}", .{ expected, tok.tag });
             return error.ExpectFailed;
         }
         return tok;
@@ -453,8 +452,8 @@ const Parser = struct {
     pub fn parseCasl(p: *Parser, file_path: []const u8) ParseError!Casl {
         const tok = p.tokenizer.next();
         switch (tok.tag) {
-            .eof => {
-                p.reportError(file_path, tok, "Expected value, but reached end of input", .{});
+            .eof, .invalid, .equal, .equal_equal, .bang_equal, .r_paren, .percent, .r_brace, .r_bracket, .period, .caret, .plus, .asterisk, .slash, .comma, .angle_bracket_left, .angle_bracket_left_equal, .angle_bracket_right, .angle_bracket_right_equal => {
+                p.reportError(file_path, tok, "expected value, but got {s}", .{tok.tag.symbol()});
                 return error.ParseFailed;
             },
             .l_brace => {
@@ -462,6 +461,7 @@ const Parser = struct {
                 _ = try p.expectToken(file_path, .r_brace);
                 return .{ .expr = .{ .object = object } };
             },
+            .l_bracket => @panic("TODO: lists"),
             .number_literal, .minus => {
                 // TODO: Proper unary minus
                 const num, const sign: f64 = switch (tok.tag) {
@@ -477,7 +477,6 @@ const Parser = struct {
                 };
                 return .{ .value = .{ .float = f * sign } };
             },
-            // Annoying side effect of using the Zig parser, have to handle keywords
             .identifier => {
                 if (std.mem.eql(u8, "true", p.tokenSlice(tok))) {
                     return .{ .value = .{ .boolean = true } };
@@ -522,10 +521,8 @@ const Parser = struct {
                     },
                 };
             },
-            else => {
-                p.reportError(file_path, tok, "invalid token: {t}", .{tok.tag});
-                return error.ParseFailed;
-            },
+            .multiline_string_literal_line => @panic("TODO: multiline_string_literal_line"),
+            .bang, .l_paren => @panic("TODO: expressions"),
         }
     }
 
@@ -549,7 +546,7 @@ const Parser = struct {
             const id = try p.expectToken(file_path, .identifier);
             const key = try p.arena.dupe(u8, p.tokenSlice(id));
             for (kvs.items) |kv| if (std.mem.eql(u8, kv.key, key)) {
-                p.reportError(file_path, id, "Redefinition of field \"{s}\"", .{key});
+                p.reportError(file_path, id, "redefinition of field \"{s}\"", .{key});
                 return error.ParseFailed;
             };
             _ = try p.expectToken(file_path, .equal);
