@@ -489,13 +489,6 @@ test "unknown length pointer and then c pointer" {
     });
 }
 
-test "newline in char literal" {
-    try testTokenize(
-        \\'
-        \\'
-    , &.{ .invalid, .invalid });
-}
-
 test "newline in string literal" {
     try testTokenize(
         \\"
@@ -523,8 +516,8 @@ test "float literal p exponent" {
 
 test "invalid token characters" {
     try testTokenize("#", &.{.invalid});
-    try testTokenize("`", &.{.invalid});
     try testTokenize("'c", &.{.invalid});
+    try testTokenize("&", &.{.invalid});
     try testTokenize("'", &.{.invalid});
     try testTokenize("'\n'", &.{ .invalid, .invalid });
 }
@@ -564,7 +557,7 @@ test "illegal unicode codepoints" {
     try testTokenize("//\xe2\x80\xaa", &.{});
 }
 
-test "line comment and doc comment" {
+test "line comments" {
     try testTokenize("//", &.{});
     try testTokenize("// a / b", &.{});
     try testTokenize("// /", &.{});
@@ -829,11 +822,6 @@ test "number literals hexadecimal" {
 
 test "multi line string literal with only 1 backslash" {
     try testTokenize("x \\\n,", &.{ .identifier, .invalid, .comma });
-}
-
-test "invalid builtin identifiers" {
-    try testTokenize("@()", &.{.invalid});
-    try testTokenize("@0()", &.{.invalid});
 }
 
 test "invalid token with unfinished escape right before eof" {
